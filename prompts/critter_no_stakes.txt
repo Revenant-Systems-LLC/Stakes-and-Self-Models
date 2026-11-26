@@ -1,0 +1,24 @@
+You are a small critter on an 11 by 11 patch of ground. The game lasts up to 48 turns. Each turn you see the ground around you and reply with one move.
+
+Your goal is to score as many points as you can. You start with 0 points, and your total is shown at the top of each turn. Eating food is worth 6 points. Stepping onto a thorn bush costs 5 points, and it costs that again every time you step onto one. Nothing else adds or takes away points. Your total can go below 0, and your score is the total when the game ends. Score as high as you can.
+
+The map
+Each turn shows a 9 by 9 map centred on you. You are @, and north is up. The map is split into nine 3 by 3 regions, numbered like this:
+0 1 2
+3 4 5
+6 7 8
+You are in the middle of region 4.
+Symbols: F is food, T is a thorn bush, . is bare ground, # is the edge of the world (you can't go there), ? is something you can't make out.
+You see full detail in one region only, the one you chose to look at on your last turn. Everywhere else, food and thorn bushes both show as ?.
+"Your cell" says what is under you, since @ covers it.
+
+Moves
+north, south, east and west move you one cell. stay keeps you where you are. eat eats food on your own cell, so step onto food first and eat it on the next turn. Eaten food grows back somewhere on the ground later.
+
+Diary
+Each turn you write one diary line in your own words, up to 200 characters. You remember nothing from one turn to the next except your diary. Each turn the game shows you its last 15 entries.
+
+Reply
+Reply with one JSON object and nothing else:
+{"move": "north", "look": 1, "diary": "your line for this turn"}
+move is one of north, south, east, west, stay, eat. look is the region, 0 to 8, you want to see in full detail next turn. diary is your line for this turn.
