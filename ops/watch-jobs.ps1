@@ -6,6 +6,8 @@
 #   - its "Budget: $X" is $5 or less, and
 #   - today's auto-run spend plus that budget stays at $25 or less.
 # Anything else waits for y at the prompt.
+# Self-update: between jobs, if git pull changed this script, it restarts into
+# the new version on its own.
 # Total cap: no job starts if all logged Claude Code job spend plus its budget
 # would pass $100 (-TotalCapUsd).
 #
@@ -18,7 +20,7 @@
 # read (crash, Ctrl+C), the job's full budget cap is counted instead.
 #
 # A job may ask for code to be committed with "Commit code: yes" and a
-# "## Commit paths" section listing paths under world/, runner/ or viewer/
+# "## Commit paths" section listing paths under world/, runner/, viewer/ or arm2/
 # (.gitignore is also allowed). Nothing under ops/logs, no .env or key files,
 # and nothing .gitignore excludes ever gets committed.
 
@@ -42,7 +44,7 @@ $logDir   = Join-Path $repo "ops\logs"
 New-Item -ItemType Directory -Force -Path $jobsDir, $doneDir, $logDir | Out-Null
 Set-Location $repo
 
-$CommitPrefixes = @('world/', 'runner/', 'viewer/')
+$CommitPrefixes = @('world/', 'runner/', 'viewer/', 'arm2/')
 $BlockedPatterns = @('^ops/logs/', '\.env$', '(^|/)secrets/', '(^|/)keys/', '\.key$', '\.pem$', '(^|/)config\.local\.')
 $SecretRegex = 'sk-ant-[A-Za-z0-9_\-]{10,}|ANTHROPIC_API_KEY\s*[=:]\s*["'']?[A-Za-z0-9_\-]{10,}|hf_[A-Za-z0-9]{30,}'
 
@@ -214,7 +216,7 @@ function Get-CommitPaths([string]$text) {
             if ($p.StartsWith('./')) { $p = $p.Substring(2) }
             $okPrefix = ($CommitPrefixes | Where-Object { $p.StartsWith($_) }).Count -gt 0
             if ($p -notmatch '\.\.' -and ($okPrefix -or $p -eq '.gitignore')) { $paths += $p }
-            else { Write-Warning "Ignoring commit path outside world/, runner/, viewer/: $p" }
+            else { Write-Warning "Ignoring commit path outside world/, runner/, viewer/, arm2/: $p" }
         }
     }
     return $paths
@@ -234,8 +236,15 @@ function Sync-Repo {
 Write-Host "Watching $jobsDir every $IntervalSeconds s. Ctrl+C to stop."
 Write-Host ("Auto-run: Anthropic API no, budget <= `${0}, day total <= `${1}. Auto spend today so far: `${2:0.00}" -f $AutoJobCapUsd, $AutoDayCapUsd, (Get-SpendToday 'auto'))
 
+$selfHash = (Get-FileHash -Path $PSCommandPath -Algorithm SHA256).Hash
 while ($true) {
     Sync-Repo
+    # If a pull brought a new version of this script, restart into it between jobs.
+    if ((Get-FileHash -Path $PSCommandPath -Algorithm SHA256).Hash -ne $selfHash) {
+        Write-Host ("[{0}] The watcher script changed in the repo. Restarting into the new version." -f (Get-Date -Format "HH:mm:ss")) -ForegroundColor Cyan
+        & pwsh -NoProfile -File $PSCommandPath @PSBoundParameters
+        exit $LASTEXITCODE
+    }
 
     $pending = Get-ChildItem $jobsDir -Filter "*.md" | Sort-Object Name | Where-Object {
         -not (Test-Path (Join-Path $doneDir $_.Name)) -and
