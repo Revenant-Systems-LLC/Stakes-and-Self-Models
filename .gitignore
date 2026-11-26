@@ -15,3 +15,6 @@ __pycache__/
 
 # Local run logs from the job watcher
 ops/logs/
+
+# Smoke run logs from the world engine
+world/_smoke_logs/
