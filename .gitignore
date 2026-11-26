@@ -12,3 +12,6 @@ config.local.*
 .venv/
 venv/
 __pycache__/
+
+# Local run logs from the job watcher
+ops/logs/
