@@ -32,3 +32,4 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 003b steering sweep | run by hand, exploratory (predates the Arm 2 calibration rules) |
 | 004 world engine | done, 99 tests pass; code uncommitted on the workstation |
 | 005 world fixes and commit | queued, auto-run |
+| 006 runner and spend caps | queued, auto-run, no API calls |
