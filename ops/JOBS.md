@@ -55,4 +55,5 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 007 local Qwen critter | done; runs and hook checks out, but the critter walks south and starves; arm2/ not committed (watcher path bug, fixed) |
 | 008 check model access | stopped, no key in its process; rerun once the watcher can hand the key to one job from DPAPI |
 | 008a why 006 didn't run | queued, auto-run, read-only |
-| 009 commit arm2/, forage diagnosis | queued, auto-run, no API calls |
+| 009 commit arm2/, forage diagnosis | done; no prompt variant made it forage (it picks the move before reading the map, then copies its diary); arm2/ still not committed |
+| 010 commit arm2/ | queued, auto-run, Haiku, no GPU |
