@@ -6,6 +6,8 @@
 #   - its "Budget: $X" is $5 or less, and
 #   - today's auto-run spend plus that budget stays at $25 or less.
 # Anything else waits for y at the prompt.
+# Total cap: no job starts if all logged Claude Code job spend plus its budget
+# would pass $100 (-TotalCapUsd).
 #
 # Nothing here should look frozen: every Claude Code step prints as it happens,
 # a heartbeat prints at least every 30 seconds while a job runs, and the idle
@@ -27,7 +29,8 @@ param(
     [int]$MaxTurns = 100,
     [double]$AutoJobCapUsd = 5.00,
     [double]$AutoDayCapUsd = 25.00,
-    [string]$DefaultModel = "sonnet"
+    [string]$DefaultModel = "sonnet",
+    [double]$TotalCapUsd = 100.00
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,6 +56,19 @@ function Get-SpendToday([string]$mode) {
     foreach ($line in Get-Content $f) {
         $parts = $line -split "`t"
         if ($parts.Count -ge 4 -and ($mode -eq 'all' -or $parts[2] -eq $mode)) { $sum += [double]$parts[3] }
+    }
+    return $sum
+}
+
+# All Claude Code job spend this watcher has logged, every day and mode.
+# Spend from before Nov 26 2026 (jobs 003b and 004) isn't in these files.
+function Get-SpendTotal {
+    $sum = 0.0
+    foreach ($f in Get-ChildItem -Path $logDir -Filter "spend-*.txt" -ErrorAction SilentlyContinue) {
+        foreach ($line in Get-Content $f.FullName) {
+            $parts = $line -split "`t"
+            if ($parts.Count -ge 4) { $sum += [double]$parts[3] }
+        }
     }
     return $sum
 }
@@ -242,11 +258,17 @@ while ($true) {
         if ($commitCode) { $commitPaths = @(Get-CommitPaths $text) }
 
         $autoSpent = Get-SpendToday 'auto'
+        $totalSpent = Get-SpendTotal
+        if (($totalSpent + $budget) -gt $TotalCapUsd) {
+            Write-Host ""
+            Write-Host ("Not starting {0}: Claude Code job spend so far is `${1:0.00}, and its `${2} budget would pass the `${3} total cap. Waiting." -f $job.Name, $totalSpent, $budget, $TotalCapUsd) -ForegroundColor Yellow
+            continue
+        }
         $auto = $apiNo -and ($budget -le $AutoJobCapUsd) -and (($autoSpent + $budget) -le $AutoDayCapUsd)
 
         Write-Host ""
         Write-Host "New job: $($job.Name)  $title"
-        Write-Host ("Model: {3}   Claude Code budget cap: `${0}   Calls the Anthropic API for critters: {1}   Auto spend today: `${2:0.00}" -f $budget, (-not $apiNo), $autoSpent, $model)
+        Write-Host ("Model: {3}   Claude Code budget cap: `${0}   Calls the Anthropic API for critters: {1}   Auto spend today: `${2:0.00}   All jobs so far: `${4:0.00} of `${5}" -f $budget, (-not $apiNo), $autoSpent, $model, $totalSpent, $TotalCapUsd)
 
         if ($auto) {
             $mode = 'auto'
