@@ -18,11 +18,12 @@ Job 006 (runner and spend caps) has no result in ops/results, but 007 and 008 ra
 ## Look at
 
 - ops/logs/: list every file with its size and last-write time.
-- Whether ops/logs/006-runner-and-spend-caps.skipped exists.
+- Whether ops/logs/006-runner-and-spend-caps.skipped, or any ops/logs/006*.skipped, exists.
+- Whether ops/results/006-runner-and-spend-caps.md exists in the working tree. If it does, whether git tracks it, whether it's in a commit that was never pushed (git log origin/main..HEAD), and its first 30 lines.
 - Every ops/logs/spend-*.txt file, in full (they hold only time, job, mode and cost).
 - ops/logs/006-runner-and-spend-caps.log, if it exists: its size, first 20 lines and last 40 lines, keys redacted.
 - Whether runner/ exists in the repo working tree, and if so its files and git status.
-- git status and the last 10 lines of git log --oneline.
+- git status, git log origin/main..HEAD --oneline, and the last 10 lines of git log --oneline.
 
 ## Result
 
