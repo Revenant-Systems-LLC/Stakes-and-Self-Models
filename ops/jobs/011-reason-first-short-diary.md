@@ -10,9 +10,9 @@ Max turns: 150
 
 - arm2/
 
-## Parked
+## GPU
 
-This file sits in ops/parked/, which the watcher doesn't read. It moves to ops/jobs/ only when David says the GPU is free. Uses the GPU for about an hour.
+David said the GPU is free on Nov 26, 2026. This job uses it for about an hour.
 
 ## Goal
 
