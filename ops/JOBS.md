@@ -43,3 +43,4 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 005 world fixes and commit | done, 121 tests pass, world/ committed; greedy faints under 15% from food density 0.08 |
 | 006 runner and spend caps | queued, auto-run, no API calls |
 | 007 local Qwen critter | queued, auto-run, no API calls |
+| 008 check model access | queued, auto-run, free list-models call only |
