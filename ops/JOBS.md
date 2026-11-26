@@ -56,6 +56,6 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 008 check model access | stopped, no key in its process; rerun once the watcher can hand the key to one job from DPAPI |
 | 008a why 006 didn't run | done: untracked fallback stub in ops/results/ on Yggdrasil |
 | 009 commit arm2/, forage diagnosis | done; no prompt variant made it forage (it picks the move before reading the map, then copies its diary); arm2/ still not committed |
-| 010 commit arm2/ | queued, auto-run, Haiku, no GPU |
+| 010 commit arm2/ | done, arm2/ committed (842151b) |
 | 010a clear stale 006 stub | queued, auto-run, Haiku, no GPU |
 | 011 reason-first replies, shorter diary | parked in ops/parked/ until the GPU is free |
