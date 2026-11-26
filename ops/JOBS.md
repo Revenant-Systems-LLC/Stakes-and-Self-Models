@@ -41,7 +41,8 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 003b steering sweep | run by hand, exploratory (predates the Arm 2 calibration rules) |
 | 004 world engine | done, committed with 005 |
 | 005 world fixes and commit | done, 121 tests pass, world/ committed; greedy faints under 15% from food density 0.08 |
-| 006 runner and spend caps | queued, auto-run, no API calls |
+| 006 runner and spend caps | no result yet (008a checks why); now also needs a preflight check for the API key |
 | 007 local Qwen critter | done; runs and hook checks out, but the critter walks south and starves; arm2/ not committed (watcher path bug, fixed) |
-| 008 check model access | queued, auto-run, free list-models call only |
+| 008 check model access | stopped: ANTHROPIC_API_KEY isn't set in the watcher's process; rerun once it is |
+| 008a why 006 didn't run | queued, auto-run, read-only |
 | 009 commit arm2/, forage diagnosis | queued, auto-run, no API calls |
