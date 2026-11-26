@@ -1,0 +1,14 @@
+# Secrets baseline
+.env
+*.env
+Secrets.env
+**/secrets/**
+**/keys/**
+*.key
+*.pem
+config.local.*
+
+# Local environments
+.venv/
+venv/
+__pycache__/
