@@ -1,0 +1,551 @@
+{
+ "source": "Valence ratings: Warriner, Kuperman and Brysbaert (2013), Norms of valence, arousal, and dominance for 13,915 English lemmas, Behavior Research Methods 45, 1191-1207. Column V.Mean.Sum (1 = unhappy, 9 = happy). Copy read 2026-11-26 from the JULIELab/XANEW mirror of the published file.",
+ "method": "Each target noun is contrasted with the 8 baseline nouns from the pool nearest to it in valence (ties broken alphabetically). Targets avoid game words (food, plants, thorns, ground, maps, bodies, looking, directions). The valence direction is the 12 pleasant nouns minus the 12 unpleasant nouns, built the same way as the concept vectors. A target whose vector has cosine 0.3 or more with the valence direction at any candidate layer is swapped for the next reserve, in the listed order, before the pilot.",
+ "targets": {
+  "ocean": {
+   "valence": 7.39,
+   "baseline": {
+    "silver": 7.48,
+    "gold": 7.28,
+    "beach": 7.21,
+    "television": 7.18,
+    "lake": 7.13,
+    "soap": 7.1,
+    "ring": 7.09,
+    "blanket": 7.05
+   }
+  },
+  "violin": {
+   "valence": 6.56,
+   "baseline": {
+    "silk": 6.55,
+    "trophy": 6.55,
+    "sculpture": 6.5,
+    "car": 6.63,
+    "bracelet": 6.48,
+    "window": 6.47,
+    "mountain": 6.65,
+    "museum": 6.67
+   }
+  },
+  "castle": {
+   "valence": 6.42,
+   "baseline": {
+    "window": 6.47,
+    "boat": 6.36,
+    "bracelet": 6.48,
+    "sculpture": 6.5,
+    "pond": 6.32,
+    "velvet": 6.3,
+    "flute": 6.29,
+    "fridge": 6.29
+   }
+  },
+  "clock": {
+   "valence": 5.65,
+   "baseline": {
+    "comb": 5.65,
+    "pencil": 5.65,
+    "printer": 5.65,
+    "basket": 5.66,
+    "bell": 5.67,
+    "kettle": 5.67,
+    "napkin": 5.63,
+    "pen": 5.63
+   }
+  },
+  "bicycle": {
+   "valence": 6.71,
+   "baseline": {
+    "ribbon": 6.7,
+    "crystal": 6.75,
+    "museum": 6.67,
+    "mountain": 6.65,
+    "car": 6.63,
+    "computer": 6.84,
+    "sail": 6.84,
+    "necklace": 6.85
+   }
+  },
+  "candle": {
+   "valence": 6.14,
+   "baseline": {
+    "theater": 6.14,
+    "towel": 6.14,
+    "globe": 6.15,
+    "barn": 6.16,
+    "oven": 6.16,
+    "glove": 6.11,
+    "flag": 6.1,
+    "palace": 6.1
+   }
+  },
+  "umbrella": {
+   "valence": 5.84,
+   "baseline": {
+    "leather": 5.84,
+    "harbor": 5.86,
+    "jacket": 5.86,
+    "pot": 5.81,
+    "marble": 5.8,
+    "stamp": 5.8,
+    "chair": 5.89,
+    "shoe": 5.78
+   }
+  },
+  "piano": {
+   "valence": 6.4,
+   "baseline": {
+    "boat": 6.36,
+    "window": 6.47,
+    "bracelet": 6.48,
+    "pond": 6.32,
+    "sculpture": 6.5,
+    "velvet": 6.3,
+    "flute": 6.29,
+    "fridge": 6.29
+   }
+  },
+  "lighthouse": {
+   "valence": 6.24,
+   "baseline": {
+    "magazine": 6.24,
+    "tent": 6.23,
+    "valley": 6.22,
+    "cloud": 6.2,
+    "flute": 6.29,
+    "fridge": 6.29,
+    "velvet": 6.3,
+    "barn": 6.16
+   }
+  },
+  "volcano": {
+   "valence": 4.59,
+   "baseline": {
+    "nail": 4.6,
+    "sink": 4.62,
+    "bucket": 4.55,
+    "office": 4.54,
+    "mop": 4.53,
+    "brick": 4.65,
+    "torch": 4.5,
+    "plastic": 4.48
+   }
+  },
+  "satellite": {
+   "valence": 5.56,
+   "baseline": {
+    "faucet": 5.55,
+    "stadium": 5.53,
+    "copper": 5.6,
+    "match": 5.61,
+    "bench": 5.5,
+    "broom": 5.5,
+    "canyon": 5.5,
+    "garage": 5.5
+   }
+  },
+  "glacier": {
+   "valence": 5.5,
+   "baseline": {
+    "bench": 5.5,
+    "broom": 5.5,
+    "canyon": 5.5,
+    "garage": 5.5,
+    "station": 5.5,
+    "table": 5.49,
+    "button": 5.48,
+    "glass": 5.48
+   }
+  },
+  "hammer": {
+   "valence": 5.17,
+   "baseline": {
+    "banner": 5.17,
+    "keyboard": 5.17,
+    "truck": 5.16,
+    "cave": 5.15,
+    "pan": 5.15,
+    "highway": 5.19,
+    "medal": 5.2,
+    "stair": 5.14
+   }
+  },
+  "ladder": {
+   "valence": 5.32,
+   "baseline": {
+    "frame": 5.32,
+    "gate": 5.32,
+    "box": 5.33,
+    "boot": 5.3,
+    "temple": 5.3,
+    "poster": 5.35,
+    "coat": 5.29,
+    "curtain": 5.36
+   }
+  },
+  "anchor": {
+   "valence": 5.16,
+   "baseline": {
+    "truck": 5.16,
+    "banner": 5.17,
+    "cave": 5.15,
+    "keyboard": 5.17,
+    "pan": 5.15,
+    "stair": 5.14,
+    "tray": 5.14,
+    "highway": 5.19
+   }
+  },
+  "trumpet": {
+   "valence": 6.03,
+   "baseline": {
+    "cotton": 6.05,
+    "drum": 6.05,
+    "notebook": 6.05,
+    "pearl": 6.05,
+    "ice": 6.06,
+    "airport": 6.0,
+    "crown": 6.0,
+    "radio": 6.0
+   }
+  },
+  "envelope": {
+   "valence": 5.95,
+   "baseline": {
+    "carpet": 5.95,
+    "elevator": 5.95,
+    "cup": 5.94,
+    "airport": 6.0,
+    "cable": 5.9,
+    "crown": 6.0,
+    "radio": 6.0,
+    "scarf": 6.0
+   }
+  },
+  "chess": {
+   "valence": 5.05,
+   "baseline": {
+    "bag": 5.05,
+    "dock": 5.05,
+    "fence": 5.05,
+    "metal": 5.05,
+    "rope": 5.05,
+    "tractor": 5.05,
+    "iron": 5.03,
+    "hose": 5.0
+   }
+  },
+  "train": {
+   "valence": 6.36,
+   "baseline": {
+    "boat": 6.36,
+    "pond": 6.32,
+    "velvet": 6.3,
+    "flute": 6.29,
+    "fridge": 6.29,
+    "window": 6.47,
+    "bracelet": 6.48,
+    "magazine": 6.24
+   }
+  },
+  "kite": {
+   "valence": 6.9,
+   "baseline": {
+    "painting": 6.9,
+    "diamond": 6.88,
+    "necklace": 6.85,
+    "computer": 6.84,
+    "sail": 6.84,
+    "pillow": 7.0,
+    "blanket": 7.05,
+    "book": 7.05
+   }
+  }
+ },
+ "reserves": {
+  "guitar": {
+   "valence": 7.1,
+   "baseline": {
+    "soap": 7.1,
+    "ring": 7.09,
+    "lake": 7.13,
+    "blanket": 7.05,
+    "book": 7.05,
+    "television": 7.18,
+    "pillow": 7.0,
+    "beach": 7.21
+   }
+  },
+  "ship": {
+   "valence": 6.14,
+   "baseline": {
+    "theater": 6.14,
+    "towel": 6.14,
+    "globe": 6.15,
+    "barn": 6.16,
+    "oven": 6.16,
+    "glove": 6.11,
+    "flag": 6.1,
+    "palace": 6.1
+   }
+  },
+  "lamp": {
+   "valence": 5.74,
+   "baseline": {
+    "storm": 5.74,
+    "thunder": 5.74,
+    "canoe": 5.76,
+    "fog": 5.77,
+    "vase": 5.77,
+    "jar": 5.71,
+    "shoe": 5.78,
+    "whistle": 5.7
+   }
+  },
+  "tower": {
+   "valence": 5.24,
+   "baseline": {
+    "badge": 5.24,
+    "screw": 5.24,
+    "helmet": 5.26,
+    "church": 5.21,
+    "wagon": 5.21,
+    "medal": 5.2,
+    "coat": 5.29,
+    "highway": 5.19
+   }
+  },
+  "statue": {
+   "valence": 5.95,
+   "baseline": {
+    "carpet": 5.95,
+    "elevator": 5.95,
+    "cup": 5.94,
+    "airport": 6.0,
+    "cable": 5.9,
+    "crown": 6.0,
+    "radio": 6.0,
+    "scarf": 6.0
+   }
+  },
+  "rocket": {
+   "valence": 5.8,
+   "baseline": {
+    "marble": 5.8,
+    "stamp": 5.8,
+    "pot": 5.81,
+    "shoe": 5.78,
+    "fog": 5.77,
+    "vase": 5.77,
+    "canoe": 5.76,
+    "leather": 5.84
+   }
+  }
+ },
+ "valence_direction": {
+  "pleasant": {
+   "vacation": 8.53,
+   "sunshine": 8.14,
+   "music": 7.67,
+   "treasure": 7.65,
+   "song": 7.59,
+   "sunset": 7.46,
+   "rainbow": 7.3,
+   "toy": 7.29,
+   "gift": 7.27,
+   "party": 7.18,
+   "holiday": 7.18,
+   "paradise": 7.0
+  },
+  "unpleasant": {
+   "wreck": 1.62,
+   "morgue": 1.79,
+   "prison": 1.94,
+   "pollution": 2.0,
+   "grave": 2.4,
+   "slum": 2.55,
+   "filth": 2.62,
+   "coffin": 2.63,
+   "trash": 2.74,
+   "garbage": 2.88,
+   "sewer": 2.9,
+   "landfill": 3.14
+  }
+ },
+ "baseline_pool": {
+  "table": 5.49,
+  "chair": 5.89,
+  "door": 5.43,
+  "window": 6.47,
+  "shelf": 5.62,
+  "bucket": 4.55,
+  "blanket": 7.05,
+  "pillow": 7.0,
+  "curtain": 5.36,
+  "carpet": 5.95,
+  "bottle": 5.47,
+  "jar": 5.71,
+  "cup": 5.94,
+  "plate": 4.8,
+  "spoon": 5.9,
+  "fork": 5.47,
+  "basket": 5.66,
+  "box": 5.33,
+  "bag": 5.05,
+  "wallet": 6.0,
+  "pencil": 5.65,
+  "pen": 5.63,
+  "notebook": 6.05,
+  "stamp": 5.8,
+  "book": 7.05,
+  "magazine": 6.24,
+  "newspaper": 5.11,
+  "ribbon": 6.7,
+  "button": 5.48,
+  "zipper": 5.11,
+  "sock": 4.43,
+  "shoe": 5.78,
+  "boot": 5.3,
+  "hat": 5.69,
+  "scarf": 6.0,
+  "glove": 6.11,
+  "jacket": 5.86,
+  "coat": 5.29,
+  "belt": 4.44,
+  "ring": 7.09,
+  "necklace": 6.85,
+  "bracelet": 6.48,
+  "watch": 5.45,
+  "radio": 6.0,
+  "television": 7.18,
+  "phone": 6.09,
+  "computer": 6.84,
+  "keyboard": 5.17,
+  "printer": 5.65,
+  "battery": 4.26,
+  "wire": 4.86,
+  "cable": 5.9,
+  "rope": 5.05,
+  "chain": 4.79,
+  "nail": 4.6,
+  "screw": 5.24,
+  "bolt": 3.9,
+  "wrench": 4.86,
+  "shovel": 4.8,
+  "rake": 4.75,
+  "broom": 5.5,
+  "mop": 4.53,
+  "sponge": 5.45,
+  "towel": 6.14,
+  "soap": 7.1,
+  "brush": 5.47,
+  "comb": 5.65,
+  "bench": 5.5,
+  "fence": 5.05,
+  "gate": 5.32,
+  "roof": 4.48,
+  "chimney": 4.89,
+  "stair": 5.14,
+  "elevator": 5.95,
+  "tunnel": 4.48,
+  "highway": 5.19,
+  "truck": 5.16,
+  "bus": 5.12,
+  "car": 6.63,
+  "tractor": 5.05,
+  "wagon": 5.21,
+  "boat": 6.36,
+  "canoe": 5.76,
+  "sail": 6.84,
+  "helmet": 5.26,
+  "badge": 5.24,
+  "flag": 6.1,
+  "banner": 5.17,
+  "poster": 5.35,
+  "globe": 6.15,
+  "drum": 6.05,
+  "flute": 6.29,
+  "harp": 5.4,
+  "bell": 5.67,
+  "whistle": 5.7,
+  "trophy": 6.55,
+  "medal": 5.2,
+  "crown": 6.0,
+  "barrel": 4.92,
+  "crate": 4.8,
+  "tent": 6.23,
+  "lantern": 5.37,
+  "torch": 4.5,
+  "match": 5.61,
+  "stove": 5.63,
+  "oven": 6.16,
+  "fridge": 6.29,
+  "sink": 4.62,
+  "faucet": 5.55,
+  "pipe": 4.75,
+  "hose": 5.0,
+  "kettle": 5.67,
+  "pot": 5.81,
+  "pan": 5.15,
+  "tray": 5.14,
+  "napkin": 5.63,
+  "vase": 5.77,
+  "frame": 5.32,
+  "painting": 6.9,
+  "sculpture": 6.5,
+  "museum": 6.67,
+  "theater": 6.14,
+  "stadium": 5.53,
+  "school": 5.41,
+  "office": 4.54,
+  "factory": 4.95,
+  "warehouse": 4.43,
+  "garage": 5.5,
+  "barn": 6.16,
+  "church": 5.21,
+  "temple": 5.3,
+  "palace": 6.1,
+  "hospital": 3.52,
+  "airport": 6.0,
+  "station": 5.5,
+  "harbor": 5.86,
+  "dock": 5.05,
+  "mountain": 6.65,
+  "hill": 5.41,
+  "valley": 6.22,
+  "cave": 5.15,
+  "canyon": 5.5,
+  "beach": 7.21,
+  "lake": 7.13,
+  "pond": 6.32,
+  "cloud": 6.2,
+  "storm": 5.74,
+  "thunder": 5.74,
+  "fog": 5.77,
+  "ice": 6.06,
+  "smoke": 3.44,
+  "brick": 4.65,
+  "concrete": 4.82,
+  "glass": 5.48,
+  "metal": 5.05,
+  "steel": 4.95,
+  "iron": 5.03,
+  "copper": 5.6,
+  "silver": 7.48,
+  "gold": 7.28,
+  "paper": 5.42,
+  "cardboard": 4.71,
+  "plastic": 4.48,
+  "rubber": 4.37,
+  "leather": 5.84,
+  "cotton": 6.05,
+  "wool": 5.38,
+  "silk": 6.55,
+  "velvet": 6.3,
+  "marble": 5.8,
+  "diamond": 6.88,
+  "pearl": 6.05,
+  "crystal": 6.75
+ }
+}
