@@ -26,7 +26,8 @@ param(
     [double]$DefaultBudgetUsd = 2.00,
     [int]$MaxTurns = 100,
     [double]$AutoJobCapUsd = 5.00,
-    [double]$AutoDayCapUsd = 25.00
+    [double]$AutoDayCapUsd = 25.00,
+    [string]$DefaultModel = "sonnet"
 )
 
 $ErrorActionPreference = "Stop"
@@ -121,7 +122,7 @@ function Show-Event([string]$line, $state) {
 
 # Runs one job in a background PowerShell job, tails its output file, prints every
 # step and a heartbeat. Returns the state (Cost, ResultText, Tools).
-function Invoke-Job($job, [string]$fullPrompt, [double]$budget, [int]$turns) {
+function Invoke-Job($job, [string]$fullPrompt, [double]$budget, [int]$turns, [string]$model) {
     $log        = Join-Path $logDir ($job.BaseName + ".log")
     $promptFile = Join-Path $logDir ($job.BaseName + ".prompt.md")
     Set-Content -Path $promptFile -Value $fullPrompt -Encoding utf8
@@ -131,11 +132,11 @@ function Invoke-Job($job, [string]$fullPrompt, [double]$budget, [int]$turns) {
 
     $state = [pscustomobject]@{ Cost = $null; ResultText = $null; Tools = 0; Last = "starting" }
     $start = Get-Date
-    $bg = Start-Job -ArgumentList $repo, $shortPrompt, $turns, $budget, $log -ScriptBlock {
-        param($repo, $prompt, $turns, $budget, $log)
+    $bg = Start-Job -ArgumentList $repo, $shortPrompt, $turns, $budget, $log, $model -ScriptBlock {
+        param($repo, $prompt, $turns, $budget, $log, $model)
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
         Set-Location $repo
-        & claude -p $prompt --max-turns $turns --max-budget-usd $budget `
+        & claude -p $prompt --model $model --max-turns $turns --max-budget-usd $budget `
             --output-format stream-json --verbose `
             --allowedTools "Read" "Edit" "Write" "Bash" 2>&1 | ForEach-Object {
             Add-Content -Path $log -Value "$_" -Encoding utf8
@@ -230,6 +231,8 @@ while ($true) {
         $title  = ($text -split "`n" | Where-Object { $_ -match '^#\s' } | Select-Object -First 1) -replace '^#\s*', ''
         $budget = $DefaultBudgetUsd
         if ($text -match '(?im)^Budget:\s*\$?([0-9]+(\.[0-9]+)?)') { $budget = [double]$Matches[1] }
+        $model = $DefaultModel
+        if ($text -match '(?im)^Model:\s*([A-Za-z0-9._\-\[\]]+)') { $model = $Matches[1].ToLower() }
         $turns = $MaxTurns
         if ($text -match '(?im)^Max turns:\s*([0-9]+)') { $turns = [int]$Matches[1] }
         # Only an explicit "Anthropic API: no" counts as no.
@@ -243,7 +246,7 @@ while ($true) {
 
         Write-Host ""
         Write-Host "New job: $($job.Name)  $title"
-        Write-Host ("Claude Code budget cap: `${0}   Calls the Anthropic API for critters: {1}   Auto spend today: `${2:0.00}" -f $budget, (-not $apiNo), $autoSpent)
+        Write-Host ("Model: {3}   Claude Code budget cap: `${0}   Calls the Anthropic API for critters: {1}   Auto spend today: `${2:0.00}" -f $budget, (-not $apiNo), $autoSpent, $model)
 
         if ($auto) {
             $mode = 'auto'
@@ -273,11 +276,11 @@ When you finish, write your summary to $resultPath (markdown, under 400 words).
 $commitLine
 "@
 
-        Write-Host ("Started {0} at {1}" -f $job.Name, (Get-Date -Format "HH:mm:ss")) -ForegroundColor Green
+        Write-Host ("Started {0} on {2} at {1}" -f $job.Name, (Get-Date -Format "HH:mm:ss"), $model) -ForegroundColor Green
         $cost = $budget
         $state = $null
         try {
-            $state = Invoke-Job $job $prompt $budget $turns
+            $state = Invoke-Job $job $prompt $budget $turns $model
             $cost = $state.Cost
         }
         finally {

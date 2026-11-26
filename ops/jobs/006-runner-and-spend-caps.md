@@ -1,6 +1,7 @@
 # 006 Runner with hard spending caps
 
 Budget: $5
+Model: sonnet
 Anthropic API: no
 Commit code: yes
 

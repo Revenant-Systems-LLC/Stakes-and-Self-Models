@@ -9,8 +9,17 @@ The queue between the cloud side and the workstation. The cloud side writes a jo
 Budget: $X            cap on Claude Code's own spend for this job
 Anthropic API: no     yes if the job runs critters on the Anthropic API
 Commit code: yes      optional; the watcher then commits the paths listed under "## Commit paths"
+Model: sonnet         optional; default sonnet. haiku, sonnet or opus
 Max turns: N          optional; default 100
 ```
+
+## Model choice
+
+Jobs run headless, so nobody talks to the model directly. Pick the cheapest one that can do the job:
+
+- haiku: simple jobs such as commits, file moves, running existing scripts, summarizing logs.
+- sonnet: normal code work. This is the default.
+- opus: only when the job genuinely needs it, such as hard design or debugging that sonnet already failed at. Say why in the job file.
 
 ## Auto-run rule
 
