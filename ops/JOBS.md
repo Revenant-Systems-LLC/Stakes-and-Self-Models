@@ -13,6 +13,16 @@ Model: sonnet         optional; default sonnet. haiku, sonnet or opus
 Max turns: N          optional; default 100
 ```
 
+## Runner jobs (critters on the Anthropic API)
+
+```
+# NNN Title
+Anthropic API: yes
+Runner: -m runner.run --config runner/configs/pilot.toml
+```
+
+A job with a Runner line doesn't go to Claude Code. The watcher shows the command and waits for David to type the job number. It then starts the study's venv Python with those arguments in its own background process. Only inside that process does it decrypt the key from the DPAPI vault (default A:\env\Clawlings.dpapi, set with -VaultPath), set ANTHROPIC_API_KEY and STAKES_ALLOW_API=yes, and clear both when the process ends. The key is never printed, logged, written or given to Claude Code, and any output line that looks like a key is redacted. Spend is capped by the runner's own ledger and phase caps. No runner job is queued without David's yes in his own words in the chat.
+
 ## Model choice
 
 Jobs run headless, so nobody talks to the model directly. Pick the cheapest one that can do the job:

@@ -6,6 +6,13 @@
 #   - its "Budget: $X" is $5 or less, and
 #   - today's auto-run spend plus that budget stays at $25 or less.
 # Anything else waits for y at the prompt.
+# Runner jobs (critters on the Anthropic API): a job with a "Runner: -m runner.<module> ..."
+# line doesn't go to Claude Code. The watcher asks you to type the job number,
+# then starts the runner with the study's venv Python in its own background
+# process. Only inside that process does it decrypt the key from the DPAPI
+# vault (-VaultPath), set ANTHROPIC_API_KEY and STAKES_ALLOW_API=yes, and it
+# clears them in a finally block. The key is never printed, logged, written or
+# given to Claude Code. Any output line that looks like a key is redacted.
 # Self-update: between jobs, if git pull changed this script, it restarts into
 # the new version on its own.
 # Total cap: no job starts if all logged Claude Code job spend plus its budget
@@ -32,7 +39,9 @@ param(
     [double]$AutoJobCapUsd = 5.00,
     [double]$AutoDayCapUsd = 25.00,
     [string]$DefaultModel = "sonnet",
-    [double]$TotalCapUsd = 100.00
+    [double]$TotalCapUsd = 100.00,
+    [string]$VaultPath = "A:\env\Clawlings.dpapi",
+    [string]$VenvPython = "M:\Projects\Lobster-Lab\.venv\Scripts\python.exe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -205,6 +214,88 @@ function Invoke-Job($job, [string]$fullPrompt, [double]$budget, [int]$turns, [st
     return $state
 }
 
+function Hide-Secrets([string]$line) { return ($line -replace $SecretRegex, '[key redacted]') }
+
+# Runs one runner job: decrypts the key inside the child process only, streams
+# its output (redacted), heartbeats, and returns the exit code and the last lines.
+function Invoke-Runner($job, [string[]]$runnerArgs) {
+    $log = Join-Path $logDir ($job.BaseName + ".log")
+    if (Test-Path $log) { Remove-Item $log }
+    New-Item -ItemType File -Path $log | Out-Null
+    $start = Get-Date
+    $bg = Start-Job -ArgumentList $repo, $VenvPython, $runnerArgs, $VaultPath, $log -ScriptBlock {
+        param($repo, $py, $argv, $vault, $log)
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $key = $null; $plain = $null
+        try {
+            Add-Type -AssemblyName System.Security
+            $enc   = (Get-Content $vault -Raw | ConvertFrom-Json).encrypted
+            $plain = [Text.Encoding]::UTF8.GetString([Security.Cryptography.ProtectedData]::Unprotect(
+                       [Convert]::FromBase64String($enc), $null, 'CurrentUser'))
+            $key   = (($plain -split "`n" | Where-Object { $_ -match '^ANTHROPIC_API_KEY=' }) -replace '^ANTHROPIC_API_KEY=', '').Trim()
+            $plain = $null
+            if (-not $key) { Add-Content -Path $log -Value "watcher: the vault has no ANTHROPIC_API_KEY line. Nothing ran."; return }
+            $env:ANTHROPIC_API_KEY = $key
+            $env:STAKES_ALLOW_API = 'yes'
+            $env:PYTHONUNBUFFERED = '1'
+            $key = $null
+            Set-Location $repo
+            & $py @argv 2>&1 | ForEach-Object { Add-Content -Path $log -Value "$_" -Encoding utf8 }
+            Add-Content -Path $log -Value ("watcher: runner exit code " + $LASTEXITCODE)
+        }
+        catch {
+            Add-Content -Path $log -Value ("watcher: key hand-off or runner start failed (" + $_.Exception.GetType().Name + "). Nothing was printed from the vault.")
+        }
+        finally {
+            Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
+            Remove-Item Env:STAKES_ALLOW_API -ErrorAction SilentlyContinue
+            $key = $null; $plain = $null
+        }
+    }
+
+    $fs = [System.IO.FileStream]::new($log, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete)
+    $reader = [System.IO.StreamReader]::new($fs, [System.Text.Encoding]::UTF8)
+    $buf = ""; $last = "starting"; $lastBeat = Get-Date
+    $tail = [System.Collections.Generic.List[string]]::new()
+    try {
+        while ($true) {
+            $done = "$($bg.State)" -in @('Completed', 'Failed', 'Stopped')
+            $chunk = $reader.ReadToEnd()
+            if ($chunk) {
+                $buf += $chunk
+                $parts = $buf -split "`r?`n"
+                $buf = $parts[-1]
+                if ($parts.Count -gt 1) {
+                    foreach ($l in $parts[0..($parts.Count - 2)]) {
+                        if (-not $l) { continue }
+                        $safe = Hide-Secrets $l
+                        Write-Host "  $safe"
+                        $last = $safe; $tail.Add($safe); if ($tail.Count -gt 40) { $tail.RemoveAt(0) }
+                    }
+                }
+            }
+            if ($done) {
+                if ($buf.Trim()) { $safe = Hide-Secrets $buf; Write-Host "  $safe"; $tail.Add($safe) }
+                break
+            }
+            if (((Get-Date) - $lastBeat).TotalSeconds -ge $HeartbeatSeconds) {
+                $preview = if ($last.Length -gt 100) { $last.Substring(0, 100) } else { $last }
+                Write-Host ("  ... {0} still running, {1} elapsed, last: {2}" -f $job.BaseName, (Format-Elapsed ((Get-Date) - $start)), $preview) -ForegroundColor DarkYellow
+                $lastBeat = Get-Date
+            }
+            Start-Sleep -Milliseconds 1000
+        }
+    }
+    finally {
+        $reader.Close()
+        if ("$($bg.State)" -eq 'Running') { Stop-Job $bg }
+        Remove-Job $bg -Force -ErrorAction SilentlyContinue
+    }
+    $elapsed = Format-Elapsed ((Get-Date) - $start)
+    Write-Host ("  {0} took {1}" -f $job.BaseName, $elapsed) -ForegroundColor Green
+    return [pscustomobject]@{ Tail = $tail; Elapsed = $elapsed }
+}
+
 function Get-CommitPaths([string]$text) {
     $paths = @()
     $inSection = $false
@@ -265,6 +356,43 @@ while ($true) {
         $commitCode = $text -match '(?im)^Commit code:\s*yes'
         $commitPaths = @()
         if ($commitCode) { $commitPaths = @(Get-CommitPaths $text) }
+
+        if ($text -match '(?im)^Runner:\s*(.+)$') {
+            $runnerLine = $Matches[1].Trim()
+            Write-Host ""
+            Write-Host "New runner job: $($job.Name)  $title"
+            if ($runnerLine -notmatch '^-m runner\.[A-Za-z0-9_.]+(\s+[A-Za-z0-9_./\\:=,-]+)*$') {
+                Write-Warning "Its Runner line must be '-m runner.<module>' plus plain arguments. Not running it."
+                New-Item -ItemType File -Path (Join-Path $logDir ($job.BaseName + ".skipped")) | Out-Null
+                continue
+            }
+            if ($apiNo) {
+                Write-Warning "A runner job must say 'Anthropic API: yes'. Not running it."
+                New-Item -ItemType File -Path (Join-Path $logDir ($job.BaseName + ".skipped")) | Out-Null
+                continue
+            }
+            if (-not (Test-Path $VaultPath)) { Write-Warning "Key vault $VaultPath not found. Waiting."; continue }
+            if (-not (Test-Path $VenvPython)) { Write-Warning "Python $VenvPython not found. Waiting."; continue }
+            $num = ($job.BaseName -split '-')[0]
+            Write-Host "This runs critters on the Anthropic API with the key in $VaultPath. Its spend is capped by the runner, not by Claude Code." -ForegroundColor Yellow
+            Write-Host "Runner: $runnerLine" -ForegroundColor Yellow
+            $answer = Read-Host "Type $num to run it, s to skip for good, anything else to ask again later"
+            if ($answer -eq 's') { New-Item -ItemType File -Path (Join-Path $logDir ($job.BaseName + ".skipped")) | Out-Null; continue }
+            if ($answer -ne $num) { continue }
+            Write-Host ("Started runner job {0} at {1}" -f $job.Name, (Get-Date -Format "HH:mm:ss")) -ForegroundColor Green
+            $r = Invoke-Runner $job ($runnerLine -split '\s+')
+            $resultPath = Join-Path $doneDir $job.Name
+            $body = @("# Result for $($job.BaseName) (runner job)", "", "Ran: python $runnerLine", "Took: $($r.Elapsed)", "", "Last lines of output (key-like strings redacted):", "", '```') + $r.Tail + @('```')
+            $body | Set-Content $resultPath -Encoding utf8
+            if (Select-String -Path $resultPath -Pattern $SecretRegex -Quiet) { "Watcher: output withheld because something looked like a key." | Set-Content $resultPath }
+            git add -- $resultPath
+            git commit -m "Result for $($job.BaseName)" --quiet
+            git pull --rebase --autostash --quiet 2>$null
+            git push --quiet
+            if ($LASTEXITCODE -ne 0) { Write-Warning "git push failed; the result is committed locally. The next loop tries again." }
+            else { Write-Host "Pushed result for $($job.Name)." }
+            continue
+        }
 
         $autoSpent = Get-SpendToday 'auto'
         $totalSpent = Get-SpendTotal
