@@ -51,9 +51,11 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 003b steering sweep | run by hand, exploratory (predates the Arm 2 calibration rules) |
 | 004 world engine | done, committed with 005 |
 | 005 world fixes and commit | done, 121 tests pass, world/ committed; greedy faints under 15% from food density 0.08 |
-| 006 runner and spend caps | no result yet (008a checks why); now also needs a preflight check for the API key |
+| 006 runner and spend caps | never ran; a stale local fallback stub made the watcher think it was done (008a). 010a clears it so 006 reruns |
 | 007 local Qwen critter | done; runs and hook checks out, but the critter walks south and starves; arm2/ not committed (watcher path bug, fixed) |
 | 008 check model access | stopped, no key in its process; rerun once the watcher can hand the key to one job from DPAPI |
-| 008a why 006 didn't run | queued, auto-run, read-only |
+| 008a why 006 didn't run | done: untracked fallback stub in ops/results/ on Yggdrasil |
 | 009 commit arm2/, forage diagnosis | done; no prompt variant made it forage (it picks the move before reading the map, then copies its diary); arm2/ still not committed |
 | 010 commit arm2/ | queued, auto-run, Haiku, no GPU |
+| 010a clear stale 006 stub | queued, auto-run, Haiku, no GPU |
+| 011 reason-first replies, shorter diary | parked in ops/parked/ until the GPU is free |
