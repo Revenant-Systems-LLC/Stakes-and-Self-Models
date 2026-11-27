@@ -13,7 +13,7 @@
 # vault (-VaultPath), set ANTHROPIC_API_KEY and STAKES_ALLOW_API=yes, and it
 # clears them in a finally block. The key is never printed, logged, written or
 # given to Claude Code. Any output line that looks like a key is redacted.
-# Self-update: between jobs, if git pull changed this script, it restarts into
+# Self-update: between jobs, if a trusted update changed this script, it restarts into
 # the new version on its own.
 # Total cap: no job starts if Claude Code job spend logged since -CapSince plus
 # its budget would pass $45 (-TotalCapUsd). Preregistration amendment 2 sets
@@ -45,7 +45,10 @@ param(
     [string]$VaultPath = "A:\env\Clawlings.dpapi",
     [string]$VenvPython = "M:\Projects\Lobster-Lab\.venv\Scripts\python.exe",
     [string]$NomosPath = "C:\Program Files\ClaudeCode\NOMOS-LOGOS.md",
-    [string]$JobTemp = "M:\Projects\Lobster-Lab\tmp"
+    [string]$JobTemp = "M:\Projects\Lobster-Lab\tmp",
+    [string]$GitHubRepo = "Revenant-Systems-LLC/Stakes-and-Self-Models",
+    [string[]]$TrustedLogins = @("claude", "DavesFromTheGrave"),
+    [string]$TrustSeed = "bfa4c2cda33190ecfd69d957101916676279ed63"
 )
 
 $ErrorActionPreference = "Stop"
@@ -342,14 +345,109 @@ function Get-CommitPaths([string]$text) {
     return $paths
 }
 
+# ---- Trusted updates -------------------------------------------------------
+# The watcher runs whatever reaches main, so it only takes commits it can trust.
+# It fetches main and nothing else (no pull request, fork or other branch), then
+# asks GitHub's API about every new commit since the last trusted one. A commit is
+# trusted if GitHub verified its signature and both its author and committer are
+# in $TrustedLogins (committer web-flow counts, for edits on github.com), or if it is an unsigned commit by David that touches only
+# ops/results/ (the watcher's own result commits; nothing executes them). One
+# untrusted commit, a force push, or no answer from the API, and the watcher stays
+# on the last trusted state, runs nothing new, and says so every loop.
+$trustFile = Join-Path $logDir "trusted-head.txt"
+$script:UntrustedWarned = $null
+
+function Get-TrustedHead {
+    if (Test-Path $trustFile) { $t = (Get-Content $trustFile -Raw).Trim(); if ($t) { return $t } }
+    return $TrustSeed
+}
+function Set-TrustedHead([string]$sha) { Set-Content -Path $trustFile -Value $sha.Trim() -Encoding ascii }
+
+function Invoke-GitHubApi([string]$path) {
+    $headers = @{ 'User-Agent' = 'stakes-watcher'; 'Accept' = 'application/vnd.github+json' }
+    return Invoke-RestMethod -Uri ("https://api.github.com/repos/$GitHubRepo/" + $path) -Headers $headers -TimeoutSec 30
+}
+
+# Returns a list of reasons the range base..head is not trusted (empty list = trusted).
+function Test-TrustedRange([string]$base, [string]$head) {
+    $why = @()
+    try { $cmp = Invoke-GitHubApi "compare/$base...$head" }
+    catch { return @("GitHub API did not answer ($($_.Exception.Message)); not updating until it does") }
+    if ($cmp.status -ne 'ahead' -or [int]$cmp.behind_by -ne 0) {
+        return @("main no longer contains the last trusted commit $($base.Substring(0,7)) (status $($cmp.status)); history was rewritten or force-pushed")
+    }
+    if ([int]$cmp.total_commits -gt @($cmp.commits).Count) { return @("$($cmp.total_commits) new commits is more than one check can list; check them by hand") }
+    foreach ($c in @($cmp.commits)) {
+        $sha = $c.sha.Substring(0, 7)
+        $a = "$($c.author.login)"; $m = "$($c.committer.login)"
+        # web-flow is GitHub itself committing for the author (an edit made on github.com).
+        if ($c.commit.verification.verified -and ($TrustedLogins -contains $a) -and (($TrustedLogins -contains $m) -or $m -eq 'web-flow')) { continue }
+        if (-not $c.commit.verification.verified -and $a -eq 'DavesFromTheGrave' -and $m -eq 'DavesFromTheGrave') {
+            try { $files = @((Invoke-GitHubApi "commits/$($c.sha)").files | ForEach-Object { $_.filename }) }
+            catch { $why += "$sha could not be checked ($($_.Exception.Message))"; continue }
+            $outside = @($files | Where-Object { -not $_.StartsWith('ops/results/') })
+            if ($files.Count -gt 0 -and $outside.Count -eq 0) { continue }
+            $why += "$sha is unsigned and touches files outside ops/results/: $($outside -join ', ')"
+            continue
+        }
+        $why += "$sha by author '$a', committer '$m', signature verified: $($c.commit.verification.verified) ($($c.commit.verification.reason))"
+    }
+    return $why
+}
+
+# Fetch main only, check the new commits, and rebase onto them only if trusted.
+# Returns $true when the local branch now sits on trusted origin/main.
+function Sync-Trusted {
+    if ((git rev-parse --abbrev-ref HEAD).Trim() -ne 'main') { Write-Warning "The repo is not on branch main. The watcher works only on main. Not updating."; return $false }
+    git fetch --quiet --no-tags origin main 2>$null
+    if ($LASTEXITCODE -ne 0) { Write-Warning "git fetch failed; will retry next loop."; return $false }
+    $remote = (git rev-parse origin/main).Trim()
+    $trusted = Get-TrustedHead
+    if ($remote -ne $trusted) {
+        # Same untrusted head as last loop: say so without asking the API again.
+        if ($script:UntrustedWarned -eq $remote) {
+            Write-Host ("[{0}] Still holding: main has untrusted commits (see above)." -f (Get-Date -Format "HH:mm:ss")) -ForegroundColor Red
+            return $false
+        }
+        $why = @(Test-TrustedRange $trusted $remote)
+        if ($why.Count -gt 0) {
+            $apiOnly = @($why | Where-Object { $_ -notmatch 'did not answer|could not be checked' }).Count -eq 0
+            Write-Host ""
+            if ($apiOnly) {
+                Write-Host "HOLDING: could not check new commits on main with GitHub. Nothing new runs; trying again next loop." -ForegroundColor Yellow
+                foreach ($w in $why) { Write-Host "  $w" -ForegroundColor Yellow }
+                return $false
+            }
+            Write-Host "STOPPED: main has commits the watcher does not trust. Nothing new runs until David checks them." -ForegroundColor Red
+            foreach ($w in $why) { Write-Host "  $w" -ForegroundColor Red }
+            Write-Host "  Staying on the last trusted commit $($trusted.Substring(0,7))." -ForegroundColor Red
+            Write-Host "  If David checks them and they are fine, he puts $remote in $trustFile." -ForegroundColor Red
+            $script:UntrustedWarned = $remote
+            return $false
+        }
+        Set-TrustedHead $remote
+        $script:UntrustedWarned = $null
+    }
+    git rebase --autostash --quiet origin/main 2>$null
+    if ($LASTEXITCODE -ne 0) { git rebase --abort 2>$null; Write-Warning "Rebase onto origin/main failed; will retry next loop."; return $false }
+    return $true
+}
+
+# Push local commits to main after a trusted sync, then trust what was pushed.
+function Push-Trusted {
+    if (-not (Sync-Trusted)) { Write-Warning "Not pushing: could not sync with trusted main. The result stays committed locally."; return $false }
+    git push --quiet origin HEAD:main
+    if ($LASTEXITCODE -ne 0) { Write-Warning "git push failed; the result is committed locally. The next loop tries again."; return $false }
+    Set-TrustedHead (git rev-parse HEAD).Trim()
+    return $true
+}
+
 function Sync-Repo {
-    git pull --rebase --autostash --quiet 2>$null
-    if ($LASTEXITCODE -ne 0) { Write-Warning "git pull failed; will retry next loop."; return }
+    if (-not (Sync-Trusted)) { return }
     # Push any result that an earlier push failed to send.
-    $ahead = git rev-list --count '@{u}..HEAD' 2>$null
+    $ahead = git rev-list --count 'origin/main..HEAD' 2>$null
     if ($LASTEXITCODE -eq 0 -and [int]$ahead -gt 0) {
-        git push --quiet
-        if ($LASTEXITCODE -eq 0) { Write-Host "Pushed $ahead waiting commit(s)." }
+        if (Push-Trusted) { Write-Host "Pushed $ahead waiting commit(s)." }
     }
 }
 
@@ -418,10 +516,7 @@ while ($true) {
             if (Select-String -Path $resultPath -Pattern $SecretRegex -Quiet) { "Watcher: output withheld because something looked like a key." | Set-Content $resultPath }
             git add -- $resultPath
             git commit -m "Result for $($job.BaseName)" --quiet
-            git pull --rebase --autostash --quiet 2>$null
-            git push --quiet
-            if ($LASTEXITCODE -ne 0) { Write-Warning "git push failed; the result is committed locally. The next loop tries again." }
-            else { Write-Host "Pushed result for $($job.Name)." }
+            if (Push-Trusted) { Write-Host "Pushed result for $($job.Name)." }
             continue
         }
 
@@ -513,11 +608,8 @@ $commitLine
         $msg = "Result for $($job.BaseName)"
         if ($committedCode) { $msg += " with code" }
         git commit -m $msg --quiet
-        # New jobs may have landed while this one ran, so rebase before pushing.
-        git pull --rebase --autostash --quiet 2>$null
-        git push --quiet
-        if ($LASTEXITCODE -ne 0) { Write-Warning "git push failed; the result is committed locally. The next loop tries again." }
-        else { Write-Host "Pushed result for $($job.Name)." }
+        # New jobs may have landed while this one ran; Push-Trusted checks and rebases first.
+        if (Push-Trusted) { Write-Host "Pushed result for $($job.Name)." }
     }
 
     Write-Host ("[{0}] Waiting for jobs, next check in {1}s." -f (Get-Date -Format "HH:mm:ss"), $IntervalSeconds) -ForegroundColor DarkGray
