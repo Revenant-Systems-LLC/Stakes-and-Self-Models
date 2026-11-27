@@ -14,10 +14,11 @@
 # clears them in a finally block. The key is never printed, logged, written or
 # given to Claude Code. Any output line that looks like a key is redacted.
 # Runner auto-run (set by David in the chat, Nov 27 2026): a runner job runs
-# without the typed number only when its Runner line is "--phase tiers" (the
-# Fable/Mythos phase, whose $150 cap lives in runner/config.json and is enforced
-# by the runner's ledger) and the job file says "Auto-run: yes". Every other
-# runner job, including pilot and confirmatory, still waits for the typed number.
+# without the typed number only when its job file says "Auto-run: yes" and its
+# Runner line is "--phase pilot", "--phase confirmatory" or "--phase tiers".
+# Each phase's cap (pilot $100, confirmatory $650, tiers $150) lives in
+# runner/config.json and is enforced by the runner's ledger. Dev, reserve and
+# any job without "Auto-run: yes" still wait for the typed number.
 # Self-update: between jobs, if a trusted update changed this script, it restarts into
 # the new version on its own.
 # Total cap: no job starts if Claude Code job spend logged since -CapSince plus
@@ -460,7 +461,7 @@ if (-not (Test-Path -LiteralPath $NomosPath)) { Write-Error "Nomos Logos not fou
 New-Item -ItemType Directory -Force -Path $JobTemp | Out-Null
 Write-Host "Watching $jobsDir every $IntervalSeconds s. Ctrl+C to stop."
 Write-Host ("Auto-run: Anthropic API no, budget <= `${0}, day total <= `${1}. Auto spend today so far: `${2:0.00}" -f $AutoJobCapUsd, $AutoDayCapUsd, (Get-SpendToday 'auto'))
-Write-Host "Runner auto-run: only --phase tiers jobs marked 'Auto-run: yes' (runner cap `$150). Other runner jobs wait for the typed number."
+Write-Host "Runner auto-run: pilot, confirmatory and tiers jobs marked 'Auto-run: yes', inside the runner's phase caps. Other runner jobs wait for the typed number."
 
 $selfHash = (Get-FileHash -Path $PSCommandPath -Algorithm SHA256).Hash
 while ($true) {
@@ -511,9 +512,9 @@ while ($true) {
             $num = ($job.BaseName -split '-')[0]
             Write-Host "This runs critters on the Anthropic API with the key in $VaultPath. Its spend is capped by the runner, not by Claude Code." -ForegroundColor Yellow
             Write-Host "Runner: $runnerLine" -ForegroundColor Yellow
-            $autoRunner = ($text -match '(?im)^Auto-run:\s*yes\b') -and ($runnerLine -match '(^|\s)--phase\s+tiers(\s|$)')
+            $autoRunner = ($text -match '(?im)^Auto-run:\s*yes\b') -and ($runnerLine -match '(^|\s)--phase\s+(pilot|confirmatory|tiers)(\s|$)')
             if ($autoRunner) {
-                Write-Host "Auto-running: tiers phase, inside the `$150 runner cap (David's yes in the chat, Nov 27 2026)." -ForegroundColor Green
+                Write-Host "Auto-running: $($Matches[2]) phase, inside the runner's cap for it (David's yes in the chat, Nov 27 2026)." -ForegroundColor Green
             }
             else {
                 $answer = Read-Host "Type $num to run it, s to skip for good, anything else to ask again later"

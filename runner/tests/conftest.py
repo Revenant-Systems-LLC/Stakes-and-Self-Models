@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 import uuid
@@ -9,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 # Scratch space on M:. The built-in tmp_path lives on the system drive, which agents may not write to.
 # Nothing here is ever deleted by the tests; the directories are small.
-SCRATCH = Path(r"M:\Projects\Lobster-Lab\runs\_runner_test_tmp")
+# STAKES_TEST_SCRATCH overrides it for test runs off Yggdrasil (a Linux checkout has no M:).
+SCRATCH = Path(os.environ.get("STAKES_TEST_SCRATCH") or r"M:\Projects\Lobster-Lab\runs\_runner_test_tmp")
 
 
 @pytest.fixture
