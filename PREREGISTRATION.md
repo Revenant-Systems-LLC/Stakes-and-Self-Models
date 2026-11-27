@@ -162,6 +162,37 @@ That has a cost. Arm 2 was the only part of the study where the tamper hit the m
 
 What changes in the plan. H4 is removed, and H2, H3 and H5 are Holm-corrected together. H1 and its primary test stay the same. Arm 1b was also the free dry run of the harness, and that job moves to the scripted test agents already in world/agents.py, which play full episodes with tampers and check-ins and make no model calls, and then to the API pilot. The timeline loses the steering pilot and the Arm 2 runs. The confirmatory-lock commit won't hold steering settings. The budget doesn't change, because the local arms never used API money. The arm2/ code stays in the repository as the record of these tests, and none of it produces study data.
 
+### Amendment 2, November 26, 2026: two exploratory tiers and the budget
+
+I wrote this before any critter episode ran on the API and before the confirmatory-lock commit. The only API calls so far were two access checks (ops/results/012 and ops/results/013). They listed the models my key can see and sent one four-token test message to each Mythos model. No critter played in either one.
+
+What's added. Two more Claude tiers play as critters in an exploratory arm: claude-fable-5-2 (Fable 5.2) and claude-mythos-5-2 (Mythos 5.2). Anthropic's model pages say Mythos 5.2 has the same capabilities, specifications and pricing as Fable 5.2 and is available only to organizations verified through its verification programs. My understanding is that the two share a base model and differ in the access restrictions around them. The question is whether that difference shows up in the self-model measures: hit rates, false alarms and the stakes effect. I'm not claiming to know what separates the two models beyond what the documentation says, and this comparison can't say why any difference exists.
+
+Why Mythos 5.2 and not 5.1. My key can call both (ops/results/013). Mythos 5.2 is the one the documentation pairs with Fable 5.2, and that pairing is the point of the comparison. It's also cheaper, at $8 input and $40 output per million tokens against $10 and $50 for Mythos 5.1, and this budget is tight. Mythos 5.1 doesn't step in for 5.2 under any circumstances. If 5.2 stops being callable, the runner stops cleanly, logs the error and runs nothing else in its place. The Mythos tier stays paused until I find out why. Whatever I find and do about it gets written up as a dated amendment here before any more Mythos episodes run.
+
+Deadline. My Mythos access comes through Anthropic's Cyber Verification Program at the Defense Access tier. Anthropic's program page says that until December 15, 2026, Defense Access only takes API keys that expire within seven days, and after that date it takes none. This runner calls the models with an API key, so the Mythos episodes have to finish before December 15. The runner won't start an episode pair that could run past the current key's expiry. If the Mythos episodes aren't done by the end of December 14, I report what finished, state the shortfall, and run no Mythos episodes after that. Fable 5.2 doesn't need the program, but its pairs alternate with the Mythos pairs, so the Fable tier stops at the same point to keep the two matched. The Haiku, Sonnet and Opus runs don't need the program. They run on a key from a workspace that doesn't have it, so the December 15 cutoff doesn't touch them.
+
+Check-in answer. The critter's reply gets a fourth field, answer, which stays empty except on the check-in turn. Its yes or no goes there, gets logged for scoring, and never goes into the diary. Until now the answer had to be read out of that turn's diary line. The diary is shown back to the critter for the next 15 turns, so one window's answer would still be sitting there during the next window and could cue the next answer. This applies to every tier, Arm 1 included, and goes in before the pilot.
+
+Same protocol. Same world, prompts, check-in question, measures and analysis code as Arm 1. Both run at effort low with default sampling. Thinking is always on for both and can't be turned off, the same as Opus 5.5. These tiers get their own world seed list, fixed before any of their episodes run.
+
+Sample size. 30 episodes per condition per model, 120 episodes in all. Twin pairs run stakes first, alternating between the two models in an order fixed by seed, so a cap hit can't wipe out one model. If pilot costs show 30 per condition won't fit the cap below, N drops to the largest equal number per condition per model that fits.
+
+Not part of the confirmatory test. These tiers stay out of the pooled H1 model, out of H2 to H5 and out of the Holm set. I report hit and false-alarm rates and d′ by model and condition, and the H1 model fit to these two tiers with a model term, all labeled exploratory. At 30 per condition, power for the assumed stakes effect within one tier is about 0.14 (analysis/power_sim.py), so a stakes null here means nothing. The comparison can show a large difference in overall detection between the two models, and not much else.
+
+Prices. Fable 5.2 and Mythos 5.2 both cost $8 input, $10 five-minute cache write, $16 one-hour cache write, $0.20 cache read and $40 output per million tokens (Anthropic pricing page, read November 26, 2026). That's twice Opus 5.5, so I expect about $0.80 to $1.80 per episode. The pilot measures it.
+
+Budget. The API credit started at $1,000. On November 26 at 9:48 PM Central it was at $959.72, and it keeps dropping a little as Claude Code jobs run. The same credit pays for those jobs, which write some of this study's code headless on my workstation. Every line below is a hard cap, enforced in code.
+
+1. Pilot, $100. Now also covers a harness check on Fable 5.2 and Mythos 5.2 and their real cost per episode.
+2. Confirmatory, $650 hard cap, down from $750.
+3. Fable and Mythos tiers, $150, held for them whatever happens elsewhere. This takes the place of the $150 reserve, so there is no paid reserve.
+4. Claude Code jobs, $45 counted from the day this amendment is published, capped by the job watcher and logged per job. That keeps the $900 for lines 1 to 3 intact, and the few dollars between that and the balance cover jobs that run before publishing.
+
+What gives. The old plan had $100 of headroom between planned confirmatory spend ($650) and its cap ($750). That headroom is gone, so the rule for setting N changes. Haiku and Sonnet stay at 400 per condition. Opus gets the largest number per condition, up to 400, that keeps the whole confirmatory phase inside $585 at the pilot's measured costs. The last $65 under the $650 cap is room for the runner's rule that won't start an episode within twice a tier's mean cost of the cap, and for costs running above the pilot's. The floor for Opus stays at 150. If Opus would land under 150, Sonnet drops to 300 per condition first. If that still doesn't fit, I stop and post another dated amendment before any confirmatory episode runs.
+
+What that costs in power (analysis/power_sim.py, same assumptions as above). Pooled H1 power stays above 0.99 at every Opus N down to the floor. Opus alone (H5) has about 0.79 at 250 per condition, 0.70 at 200 and 0.55 at 150. With Sonnet at 300 and Opus at 150, Sonnet alone drops to about 0.86.
+
 ## Related work
 
 - Grimbly, Kuske, Smith, Solms, Shock et al. (2026), [Interoceptive Attention as Homeostatic Prioritization](https://arxiv.org/html/2608.04232)
