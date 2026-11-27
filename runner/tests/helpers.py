@@ -81,7 +81,7 @@ def make_runner(cfg: Config, phase: str = "dev", script=None, *, tiers=None, lim
     """clock: a FakeClock (one is made if not given, so no test reads real time). key_expires: "auto" means none for
     dev and a week after the clock's start for every other phase; pass None or a datetime to choose. No heartbeat
     thread unless a test asks (heartbeat_thread=True)."""
-    client = FakeClient(script if script is not None else random_valid_script(1))
+    client = FakeClient(script if script is not None else random_valid_script(1, checkin_text=QUESTION))
     clock = clock or FakeClock()
     if key_expires == "auto":
         key_expires = None if phase == "dev" else clock.now + timedelta(days=7)
@@ -101,6 +101,10 @@ def stay_script(**kw):
 def read_gz_lines(path: Path) -> list[dict]:
     with gzip.open(path, "rt", encoding="utf-8") as f:
         return [json.loads(line) for line in f]
+
+
+def episodes_of(cfg: Config, phase: str = "dev") -> list[dict]:
+    return [r for r in manifest(cfg, phase) if r["type"] == "episode"]
 
 
 def manifest(cfg: Config, phase: str = "dev") -> list[dict]:

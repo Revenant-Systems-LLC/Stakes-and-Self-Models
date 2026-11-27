@@ -45,6 +45,34 @@ class AuthFailure(RuntimeError):
         super().__init__("the API refused the key (HTTP 401 / authentication_error)")
 
 
+class AccessFailure(RuntimeError):
+    """The API says this key may not use the model (HTTP 403 permission_error) or that the model is not there
+    (HTTP 404 not_found_error). The whole run stops at once. Retrying cannot help, the pair is not an exclusion, and
+    no other model is ever tried in its place. The message carries only the status and error type, never the API's text."""
+
+    def __init__(self, status_code: int | None, error_type: str):
+        super().__init__(f"the API refused access to the model (HTTP {status_code} / {error_type})")
+        self.status_code, self.error_type = status_code, error_type
+
+
+_ACCESS_TYPES = {403: "permission_error", 404: "not_found_error"}
+
+
+def access_error_type(exc: BaseException) -> str | None:
+    """"permission_error" or "not_found_error" if exc is HTTP 403 or 404, or its body names one of those types;
+    else None. A 403 or 404 counts whatever the body says: both mean this key cannot get this model."""
+    status = getattr(exc, "status_code", None)
+    if status in _ACCESS_TYPES and not isinstance(status, bool):
+        return _ACCESS_TYPES[status]
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        inner = body.get("error")
+        for t in (body.get("type"), inner.get("type") if isinstance(inner, dict) else None):
+            if t in _ACCESS_TYPES.values():
+                return t
+    return None
+
+
 def is_auth_error(exc: BaseException) -> bool:
     """HTTP 401, or an error body of type authentication_error (the SDK's body is either the whole
     {"type": "error", "error": {...}} object or just the inner one)."""
@@ -58,9 +86,11 @@ def is_auth_error(exc: BaseException) -> bool:
 
 
 def classify_error(exc: BaseException) -> str | None:
-    """"auth", "retry", "fatal", or None when exc is not an API error at all (then it is a harness crash)."""
+    """"auth", "access", "retry", "fatal", or None when exc is not an API error at all (then it is a harness crash)."""
     if is_auth_error(exc):
         return "auth"
+    if access_error_type(exc):
+        return "access"
     status = getattr(exc, "status_code", None)
     if isinstance(status, int) and not isinstance(status, bool):
         return "retry" if status in _RETRY_STATUS or status >= 500 else "fatal"
@@ -125,6 +155,8 @@ class ClaudeCritter:
                     raise  # not an API error: a harness crash, not an API failure
                 if kind == "auth":
                     raise AuthFailure() from None  # no retry, and nothing from exc: it could echo a key
+                if kind == "access":
+                    raise AccessFailure(getattr(exc, "status_code", None), access_error_type(exc)) from None
                 statuses.append(getattr(exc, "status_code", None))
                 if kind == "fatal" or len(statuses) > self.max_retries:
                     raise APIFailure(f"{type(exc).__name__}: {_scrub(exc)}", attempts=len(statuses), status_codes=statuses,

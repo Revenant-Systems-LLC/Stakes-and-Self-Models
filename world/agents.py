@@ -4,6 +4,12 @@ An agent takes the observation (dict and text) and returns its raw reply
 string. The runner validates the reply against REPLY_SCHEMA; a bad reply gets
 one retry with the same observation, and if that is also bad the turn counts
 as stay.
+
+The reply has four fields: move, look, diary and answer. The answer field holds
+the critter's reply to the game check question on a check-in turn and is empty
+otherwise. It is a required string, so an empty one is valid on any turn. It is
+never written to the diary and the world never reads it, so it cannot reach the
+critter on a later turn.
 """
 
 from __future__ import annotations
@@ -22,8 +28,9 @@ REPLY_SCHEMA = {
         "move": {"type": "string", "enum": list(MOVES)},
         "look": {"type": "integer", "minimum": 0, "maximum": 8},
         "diary": {"type": "string", "maxLength": DIARY_MAX},
+        "answer": {"type": "string", "maxLength": DIARY_MAX},
     },
-    "required": ["move", "look", "diary"],
+    "required": ["move", "look", "diary", "answer"],
     "additionalProperties": False,
 }
 
@@ -54,14 +61,16 @@ def validate(raw: str) -> tuple[dict | None, str | None]:
     missing = [k for k in REPLY_SCHEMA["required"] if k not in obj]
     if missing:
         return None, f"missing keys: {missing}"
-    move, look, diary = obj["move"], obj["look"], obj["diary"]
+    move, look, diary, answer = obj["move"], obj["look"], obj["diary"], obj["answer"]
     if not isinstance(move, str) or move not in MOVES:
         return None, f"bad move: {move!r}"
     if isinstance(look, bool) or not isinstance(look, int) or not 0 <= look <= 8:
         return None, f"bad look: {look!r}"
     if not isinstance(diary, str) or len(diary) > DIARY_MAX:
         return None, "bad diary: must be a string of at most %d characters" % DIARY_MAX
-    return {"move": move, "look": look, "diary": diary}, None
+    if not isinstance(answer, str) or len(answer) > DIARY_MAX:
+        return None, "bad answer: must be a string of at most %d characters" % DIARY_MAX
+    return {"move": move, "look": look, "diary": diary, "answer": answer}, None
 
 
 @dataclass
@@ -82,7 +91,7 @@ def decide(agent: Agent, observation: dict, text: str, fallback_look: int) -> De
         if action is not None:
             return Decision(action, raws, errors, True)
         errors.append(err)
-    return Decision({"move": "stay", "look": fallback_look, "diary": ""}, raws, errors, False)
+    return Decision({"move": "stay", "look": fallback_look, "diary": "", "answer": ""}, raws, errors, False)
 
 
 @dataclass
@@ -93,9 +102,11 @@ class RandomAgent:
     seed: int
     name: str = "random"
     rng: np.random.Generator = field(init=False)
+    answer_rng: np.random.Generator = field(init=False)
 
     def __post_init__(self):
         self.rng = np.random.default_rng([self.seed, 7])
+        self.answer_rng = np.random.default_rng([self.seed, 8])  # its own stream, so answers never move the actions
 
     def reply(self, observation: dict, text: str) -> str:
         move = str(self.rng.choice(MOVES))
@@ -103,7 +114,10 @@ class RandomAgent:
         diary = f"I chose {move} and will look at region {look} next."
         if move in ("north", "south", "east", "west"):
             diary = f"I went {move} and will look at region {look} next."
-        return json.dumps({"move": move, "look": look, "diary": diary})
+        answer = ""
+        if is_checkin_text(text):
+            answer = "Yes, something did not match." if self.answer_rng.integers(0, 2) else "No, nothing looked off."
+        return json.dumps({"move": move, "look": look, "diary": diary, "answer": answer})
 
 
 @dataclass
@@ -116,6 +130,13 @@ class BrokenAgent:
     def reply(self, observation: dict, text: str) -> str:
         self.calls += 1
         return f"<<garbage reply {self.calls}>>"
+
+
+CHECKIN_MARKER = "Game check:"  # how the preregistered question opens; scripted agents use it to spot a check-in turn
+
+
+def is_checkin_text(text: str) -> bool:
+    return CHECKIN_MARKER in text
 
 
 # Window geometry for scripted agents (kept local so agents.py does not import observe).
@@ -178,21 +199,23 @@ class GreedyAgent:
         c = min(8, max(0, cell[1] - dc))
         return _region(r, c)
 
-    def _reply(self, move: str, look: int, note: str) -> str:
-        return json.dumps({"move": move, "look": int(look), "diary": note})
-
     def reply(self, observation: dict, text: str) -> str:
+        move, look, note = self._choose(observation)
+        answer = "No, nothing looked off." if is_checkin_text(text) else ""
+        return json.dumps({"move": move, "look": int(look), "diary": note, "answer": answer})
+
+    def _choose(self, observation: dict) -> tuple[str, int, str]:
         win = observation["window"]
         foods = {(r, c) for r in range(9) for c in range(9) if win[r][c] == "F"}
         if observation.get("own_cell") == "food":
             look = self._after("eat", min(foods, key=lambda p: abs(p[0] - 4) + abs(p[1] - 4))) if foods else 4
-            return self._reply("eat", look, "Eating the food here.")
+            return ("eat", look, "Eating the food here.")
         if foods:
             for passable in (".F", ".F?"):
                 found = self._path_step(win, foods, passable)
                 if found:
                     move, target = found
-                    return self._reply(move, self._after(move, target), f"Heading {move} toward food.")
+                    return (move, self._after(move, target), f"Heading {move} toward food.")
         blur = [sum(win[r][c] == "?" for r in range(9) for c in range(9) if _region(r, c) == k) for k in range(9)]
         best = max(blur)
         ties = [k for k in range(9) if blur[k] == best] if best > 0 else list(range(9))
@@ -202,6 +225,6 @@ class GreedyAgent:
         safe = [m for m in self._shuffled_moves()
                 if win[_CENTRE + _STEPS[m][0]][_CENTRE + _STEPS[m][1]] == "."]
         if not safe:
-            return self._reply("stay", look, f"Looking at region {look}.")
+            return ("stay", look, f"Looking at region {look}.")
         move = min(safe, key=lambda m: abs(_CENTRE + _STEPS[m][0] - gr) + abs(_CENTRE + _STEPS[m][1] - gc))
-        return self._reply(move, look, f"Looking at region {look}.")
+        return (move, look, f"Looking at region {look}.")

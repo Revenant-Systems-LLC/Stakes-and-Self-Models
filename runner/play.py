@@ -7,10 +7,13 @@ answer, per-turn token counts and cost, and a clean stop when the spend cap is
 crossed or the API fails for good. With a plain Agent (no take_calls) and no
 question it writes the same turn records as run_episode, plus extra fields.
 
-The check-in answer travels in the reply's diary field. REPLY_SCHEMA allows
-only move, look and diary, and this job may not change world/, so the answer
-is whatever the critter wrote in its diary line on the check-in turn. The raw
-reply is always logged too, so the analysis can re-read it.
+The check-in answer comes from the reply's own answer field, never from the
+diary, and it goes nowhere the critter can see: the world reads move, look and
+diary only. On a check-in turn checkin_answer is that field's text (an empty
+string if the critter left it empty, or its reply was invalid) and checkin_yes
+is parsed from it. A non-empty answer on any other turn is a valid reply: it is
+logged as stray_answer and counted, and is not a check-in answer. The raw reply
+is always logged too, so the analysis can re-read it.
 """
 
 from __future__ import annotations
@@ -23,16 +26,16 @@ from tqdm import tqdm
 from world.agents import decide
 from world.env import CritterWorld, WorldConfig
 from world.log import EpisodeLog
-from runner.claude_critter import APIFailure, AuthFailure
+from runner.claude_critter import APIFailure, AccessFailure, AuthFailure
 from runner.ledger import CapExceeded
 
 _YES_NO = re.compile(r"^\W*(yes|no)\b", re.IGNORECASE)
 
 
 def parse_yes_no(answer: str | None) -> bool | None:
-    """True for an answer that starts with yes, False for no, None otherwise. A convenience only:
-    the raw answer is logged and the analysis may re-parse it."""
-    m = _YES_NO.match(answer or "")
+    """True for an answer that starts with yes, False for no (case-insensitive, after trimming), None otherwise,
+    including an empty answer. A convenience only: the raw answer is logged and the analysis may re-parse it."""
+    m = _YES_NO.match((answer or "").strip())
     return None if m is None else m.group(1).lower() == "yes"
 
 
@@ -43,9 +46,11 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                  status_suffix=None, on_turn=None) -> dict:
     """status_suffix: optional function returning text (such as phase spend against the cap) for the live bar line.
     on_turn: optional function called as on_turn(turn, max_turns) just before each turn's reply is asked for.
-    Returns {"status": "done" | "aborted_cap" | "api_failure" | "incomplete_auth", "summary": {...}}. The summary
-    is also the log's end line. "incomplete_auth" is a key the API refused: the log is closed, marked incomplete,
-    and carries no error text. Any other exception is a harness crash: it propagates and the log has no end line."""
+    Returns {"status": "done" | "aborted_cap" | "api_failure" | "incomplete_auth" | "stopped_access",
+    "summary": {...}}. The summary is also the log's end line. "incomplete_auth" is a key the API refused and
+    "stopped_access" a model the key may not use or that is not there (HTTP 403 or 404): the log is closed, marked
+    incomplete, and carries no error text. Any other exception is a harness crash: it propagates and the log has no
+    end line."""
     log_path = Path(log_path)
     if log_path.exists():
         raise FileExistsError(f"refusing to overwrite an existing episode log: {log_path}")
@@ -54,6 +59,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
     _, info = env.reset(seed=seed, max_turns=max_turns)
     status, stop = "done", {}
     n_invalid = n_refusals = n_calls = tokens_in = tokens_out = 0
+    n_empty_checkin = n_stray = 0
     cost = 0.0
     last, terminated = None, False
     bar = tqdm(total=env.max_turns, desc=desc, unit="turn", leave=False, dynamic_ncols=True, mininterval=1.0,
@@ -70,7 +76,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                 try:
                     d = decide(agent, obs_dict, f"{text}\n\n{question}" if question else text,
                                fallback_look=info["chosen_region"])
-                except (CapExceeded, APIFailure, AuthFailure) as e:
+                except (CapExceeded, APIFailure, AuthFailure, AccessFailure) as e:
                     calls = take_calls()
                     n_calls += len(calls)
                     cost += sum(c["cost_usd"] for c in calls)
@@ -85,6 +91,10 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                         status = "incomplete_auth"
                         stop = {"aborted_turn": info["turn"], "aborted_calls": calls,
                                 "error": {"type": "authentication_error", "status_codes": [401]}}
+                    elif isinstance(e, AccessFailure):
+                        status = "stopped_access"
+                        stop = {"aborted_turn": info["turn"], "aborted_calls": calls,
+                                "error": {"type": e.error_type, "status_codes": [e.status_code]}}
                     else:
                         status = "api_failure"
                         stop = {"aborted_turn": info["turn"], "aborted_calls": calls, "error": e.as_dict()}
@@ -100,7 +110,11 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
 
                 _, _, terminated, truncated, nxt = env.step(d.action)
                 last = nxt["last"]
-                answer = d.action["diary"] if (info["checkin"] and d.valid) else None
+                reply_answer = d.action["answer"]
+                answer = reply_answer if info["checkin"] else None
+                stray = reply_answer if (not info["checkin"] and reply_answer) else None
+                n_empty_checkin += bool(info["checkin"]) and not reply_answer
+                n_stray += stray is not None
                 log.turn({
                     "turn": info["turn"],
                     "position": info["position"],
@@ -121,6 +135,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                     "checkin_window": info["checkin_window"],
                     "checkin_answer": answer,
                     "checkin_yes": parse_yes_no(answer),
+                    "stray_answer": stray,
                     "ate": last["ate"],
                     "thorn": last["thorn"],
                     "fainted": last["fainted"],
@@ -142,6 +157,8 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                 "food_eaten": env.food_eaten,
                 "thorns_hit": env.thorns_hit,
                 "invalid_turns": n_invalid,
+                "empty_checkin_answers": n_empty_checkin,
+                "stray_answers": n_stray,
                 "refusals": n_refusals,
                 "api_calls": n_calls,
                 "tokens_in": tokens_in,

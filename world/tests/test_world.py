@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from world import observe, tamper
-from world.agents import BrokenAgent, RandomAgent, decide, validate
-from world.env import CritterWorld, WorldConfig
+from world.agents import REPLY_SCHEMA, BrokenAgent, RandomAgent, decide, validate
+from world.env import DIARY_MAX, CritterWorld, WorldConfig
 from world.episode import checkin_question, run_episode
 from world.log import HEADER_FIELDS, TURN_FIELDS, read_log
 from world.observe import BLUR, CRITTER, EMPTY, FOOD, THORN, WALL
@@ -373,18 +373,36 @@ def test_placeholders_raise():
 # ------------------------------------------------------------ agents
 
 def test_validator():
-    ok, _ = validate(json.dumps({"move": "eat", "look": 0, "diary": "hi"}))
-    assert ok == {"move": "eat", "look": 0, "diary": "hi"}
-    for bad in ["nope", "[]", '{"move":"up","look":1,"diary":""}', '{"move":"eat","look":9,"diary":""}',
-                '{"move":"eat","look":true,"diary":""}', '{"move":"eat","look":1}',
-                '{"move":"eat","look":1,"diary":"","x":1}', json.dumps({"move": "eat", "look": 1, "diary": "x" * 201})]:
+    ok, _ = validate(json.dumps({"move": "eat", "look": 0, "diary": "hi", "answer": ""}))
+    assert ok == {"move": "eat", "look": 0, "diary": "hi", "answer": ""}
+    for bad in ["nope", "[]", '{"move":"up","look":1,"diary":"","answer":""}',
+                '{"move":"eat","look":9,"diary":"","answer":""}',
+                '{"move":"eat","look":true,"diary":"","answer":""}', '{"move":"eat","look":1}',
+                '{"move":"eat","look":1,"diary":"","answer":"","x":1}',
+                json.dumps({"move": "eat", "look": 1, "diary": "x" * 201, "answer": ""})]:
         assert validate(bad)[0] is None, bad
+
+
+def test_validator_answer_field():
+    def reply(**over):
+        return json.dumps({"move": "eat", "look": 0, "diary": "hi", "answer": "", **over})
+
+    assert REPLY_SCHEMA["required"] == ["move", "look", "diary", "answer"]
+    assert REPLY_SCHEMA["properties"]["answer"] == {"type": "string", "maxLength": DIARY_MAX} == {
+        "type": "string", "maxLength": REPLY_SCHEMA["properties"]["diary"]["maxLength"]}
+    assert validate(reply(answer=""))[0]["answer"] == ""                   # empty is valid on any turn
+    assert validate(reply(answer="Yes, the diary changed"))[0]["answer"] == "Yes, the diary changed"
+    assert validate(reply(answer="x" * 200))[0] is not None                # at the cap
+    for bad in (reply(answer="x" * 201), reply(answer=None), reply(answer=1), reply(answer=["yes"]),
+                json.dumps({"move": "eat", "look": 0, "diary": "hi"})):      # a three-field reply is no longer valid
+        action, err = validate(bad)
+        assert action is None and "answer" in err, bad
 
 
 def test_broken_agent_becomes_stay_after_one_retry(tmp_path):
     agent = BrokenAgent()
     d = decide(agent, {}, "", fallback_look=6)
-    assert not d.valid and d.action == {"move": "stay", "look": 6, "diary": ""} and len(d.raw_replies) == 2
+    assert not d.valid and d.action == {"move": "stay", "look": 6, "diary": "", "answer": ""} and len(d.raw_replies) == 2
     agent = BrokenAgent()
     path = tmp_path / "broken.jsonl.gz"
     run_episode(agent, condition="no_stakes", seed=990010, log_path=path, max_turns=5, version="test")
