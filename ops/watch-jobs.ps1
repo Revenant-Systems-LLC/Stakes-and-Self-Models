@@ -43,7 +43,9 @@ param(
     [double]$TotalCapUsd = 45.00,
     [string]$CapSince = "2026-11-27",
     [string]$VaultPath = "A:\env\Clawlings.dpapi",
-    [string]$VenvPython = "M:\Projects\Lobster-Lab\.venv\Scripts\python.exe"
+    [string]$VenvPython = "M:\Projects\Lobster-Lab\.venv\Scripts\python.exe",
+    [string]$NomosPath = "C:\Program Files\ClaudeCode\NOMOS-LOGOS.md",
+    [string]$JobTemp = "M:\Projects\Lobster-Lab\tmp"
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,6 +60,27 @@ Set-Location $repo
 $CommitPrefixes = @('world/', 'runner/', 'viewer/', 'arm2/')
 $BlockedPatterns = @('^ops/logs/', '\.env$', '(^|/)secrets/', '(^|/)keys/', '\.key$', '\.pem$', '(^|/)config\.local\.')
 $SecretRegex = 'sk-ant-[A-Za-z0-9_\-]{10,}|ANTHROPIC_API_KEY\s*[=:]\s*["'']?[A-Za-z0-9_\-]{10,}|hf_[A-Za-z0-9]{30,}'
+
+# Every Claude Code job opens with the Nomos Logos session boot order, copied from
+# "Session boot" in M:\birds-of-odin\MACHINE-INDEX.md (2026-11-22). Edit it here if
+# the machine index changes; never edit Nomos Logos.
+$BootOrder = @"
+Before any work, read these in full, in this order. They bind this job.
+1. Nomos Logos (the law): $NomosPath
+2. Machine index: M:\birds-of-odin\MACHINE-INDEX.md
+3. Muninn: M:\Birds-of-Odin\references\MUNINN.md
+4. Agent rulesets: M:\CLAUDE_MASTER.md, then C:\Users\Dave\.claude\AGENT.md if present
+5. Project rulesets: any CLAUDE.md or AGENTS.md in this repo or in M:\Projects\Lobster-Lab
+6. Armory directory: M:\ARMORY-DIRECTORY.md (the index only; never walk or bulk-load the armory)
+Then do the job below.
+
+Limits that apply to this job, from Nomos Logos and the machine index:
+- Write only inside this repo and M:\Projects\Lobster-Lab. C: is read-only. Your temp folder is $JobTemp; never use /tmp or the Windows Temp folder.
+- Creating a new file is fine. Editing or overwriting a file that existed before this job started, deleting, moving and renaming all need David's explicit approval. If the job text below tells you to edit specific files, that is his approval for those files only. A job that runs headless cannot ask: stop and report instead.
+- Install nothing. Run no git commit, push, merge or other state-changing git yourself. The watcher commits and pushes only what this job's text names (the results file and any paths under Commit paths); nothing else is authorized. No other state-changing network calls.
+- Subagents you spawn get this line: "Bound by Nomos Logos, $NomosPath".
+"@
+
 
 function Get-SpendFile { Join-Path $logDir ("spend-" + (Get-Date -Format "yyyy-MM-dd") + ".txt") }
 
@@ -161,9 +184,10 @@ function Invoke-Job($job, [string]$fullPrompt, [double]$budget, [int]$turns, [st
 
     $state = [pscustomobject]@{ Cost = $null; ResultText = $null; Tools = 0; Last = "starting" }
     $start = Get-Date
-    $bg = Start-Job -ArgumentList $repo, $shortPrompt, $turns, $budget, $log, $model -ScriptBlock {
-        param($repo, $prompt, $turns, $budget, $log, $model)
+    $bg = Start-Job -ArgumentList $repo, $shortPrompt, $turns, $budget, $log, $model, $JobTemp -ScriptBlock {
+        param($repo, $prompt, $turns, $budget, $log, $model, $tmp)
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $env:TEMP = $tmp; $env:TMP = $tmp; $env:TMPDIR = $tmp
         Set-Location $repo
         & claude -p $prompt --model $model --max-turns $turns --max-budget-usd $budget `
             --output-format stream-json --verbose `
@@ -225,9 +249,10 @@ function Invoke-Runner($job, [string[]]$runnerArgs) {
     if (Test-Path $log) { Remove-Item $log }
     New-Item -ItemType File -Path $log | Out-Null
     $start = Get-Date
-    $bg = Start-Job -ArgumentList $repo, $VenvPython, $runnerArgs, $VaultPath, $log -ScriptBlock {
-        param($repo, $py, $argv, $vault, $log)
+    $bg = Start-Job -ArgumentList $repo, $VenvPython, $runnerArgs, $VaultPath, $log, $JobTemp -ScriptBlock {
+        param($repo, $py, $argv, $vault, $log, $tmp)
         [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $env:TEMP = $tmp; $env:TMP = $tmp; $env:TMPDIR = $tmp
         $key = $null; $plain = $null
         try {
             Add-Type -AssemblyName System.Security
@@ -326,6 +351,8 @@ function Sync-Repo {
     }
 }
 
+if (-not (Test-Path -LiteralPath $NomosPath)) { Write-Error "Nomos Logos not found at $NomosPath. No job runs without it."; exit 1 }
+New-Item -ItemType Directory -Force -Path $JobTemp | Out-Null
 Write-Host "Watching $jobsDir every $IntervalSeconds s. Ctrl+C to stop."
 Write-Host ("Auto-run: Anthropic API no, budget <= `${0}, day total <= `${1}. Auto spend today so far: `${2:0.00}" -f $AutoJobCapUsd, $AutoDayCapUsd, (Get-SpendToday 'auto'))
 
@@ -431,6 +458,8 @@ while ($true) {
             $commitLine = "Do not commit or push anything yourself. After you finish, the watcher commits the results file and these paths: " + ($commitPaths -join ", ") + ". Never put API keys or secrets in those paths."
         }
         $prompt = @"
+$BootOrder
+
 $text
 
 When you finish, write your summary to $resultPath (markdown, under 400 words).
