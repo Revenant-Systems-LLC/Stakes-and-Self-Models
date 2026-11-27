@@ -219,6 +219,16 @@ Attempt 2 isn't voided. Its costs set N for the tiers phase, since more food doe
 
 Attempt 3 result, added November 27 before attempt 4 ran (ops/results/024). At 0.16, 0 of 12 Haiku and 2 of 6 Sonnet stakes episodes fainted, both from running out of energy. Weighted by the planned 400 Haiku and 400 Sonnet confirmatory pairs, that's 16.7%, which misses the 15% line, so attempt 4 runs at 0.20 with 12 Haiku and 6 Sonnet pairs on the next unused pilot seeds. I'm setting what happens after it now too. If 0.20 passes, it's the density. If it misses, I stop tuning and post an amendment before any tiers or confirmatory episode, because only 8 pilot seeds would be left, too few for another round of this size.
 
+### Amendment 5, November 27, 2026: food tuning stops at attempt 4
+
+I wrote this after pilot attempt 4 (jobs 025 and 026) and before any tiers or confirmatory episode or the confirmatory-lock commit. As in amendment 4, I read only faint counts, faint causes, food eaten, thorns hit, and energy and health on the last turn. I didn't read check-in answers or count hits or false alarms.
+
+The result. At 0.20, 2 of 12 Haiku and 3 of 6 Sonnet stakes episodes fainted, all from running out of energy (ops/results/026). Weighted by the planned 400 Haiku and 400 Sonnet pairs, that's 33.3%, so 0.20 misses the 15% line too, and by more than 0.16 did. Under the rule I set in amendment 4, food tuning stops here.
+
+What the two rounds show. More food on the map didn't mean more food eaten in the stakes condition. Haiku stakes critters ate 6.9 food on average at both 0.16 and 0.20, and Sonnet stakes critters ate 6.2 at 0.16 and 5.5 at 0.20. Their no-stakes twins, on the same maps, ate 6.2 and 8.5 (Haiku) and 6.7 and 7.2 (Sonnet). Across both rounds, Haiku fainted in 2 of 24 stakes episodes and Sonnet in 5 of 12. With these sample sizes the difference between the two densities is noise. What isn't noise is that raising density didn't lower Sonnet's faint rate, so density isn't the lever for it.
+
+What happens next. No tiers or confirmatory episode runs until the next step is written into this amendment and committed. Only 8 pilot seeds are left, so any further tuning would need new seeds, which is a change of its own. Pilot spend so far is $16.95 of the $100 cap.
+
 ## Related work
 
 - Grimbly, Kuske, Smith, Solms, Shock et al. (2026), [Interoceptive Attention as Homeostatic Prioritization](https://arxiv.org/html/2608.04232)
