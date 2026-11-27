@@ -64,5 +64,6 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 013 Mythos check after CVP | done: claude-mythos-5-2 and claude-mythos-5-1 callable |
 | 014 runner ready for pilot and tiers | done: seed lists, tiers phase, 401 stop, resume, heartbeat, expiry guard; 152 tests |
 | 015 check-in answer field | done: answer field, kept out of the diary, 403/404 stop added; 316 tests |
-| 016 scripted dry run | queued again: builds on the stopped run's play.py edit and check_logs.py, no delete step, temp on M: only |
+| 016 scripted dry run | done: 48 scripted episodes, 0 checker failures, 384 tests pass |
+| 018 API pilot | queued, waits for David to type 018: 5/3/2/1/1 twin pairs on Haiku/Sonnet/Opus/Fable/Mythos, pilot cap $100 |
 | 017 find Nomos Logos, audit writes | done: Nomos loaded on every job via SessionStart hooks; C: Temp writes in 006, 015, 016 |
