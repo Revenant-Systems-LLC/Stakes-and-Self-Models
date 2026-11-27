@@ -146,6 +146,22 @@ Before the first confirmatory episode, a commit tagged confirmatory-lock holds t
 
 Any change after this commit goes in the write-up with the date and the reason.
 
+## Amendments
+
+### Amendment 1, November 26, 2026: dropping the local models
+
+I wrote this before any API episode ran, before the steering calibration pilot, and before the confirmatory-lock commit. No Arm 2 or Arm 1b data exists under the protocol above.
+
+Arm 2 (Qwen2.5-7B-Instruct with activation steering) and Arm 1b (the Arm 1 protocol on local models through Ollama) are out of the study. It now runs on the three Claude tiers in Arm 1 only.
+
+The reason is that Qwen2.5-7B couldn't play the game. I tested it on development seeds, which never go into the data. In 33 episodes across eleven prompt variants, none foraged and every critter starved by turn 28, before the episode could reach all four check-in windows (ops/results/009). Its move didn't depend on where the food was. On turn 1, with food in view straight north, it said south with probability 0.92 and north with probability 0.004. A second round tried the reply keys in a different order, a diary line written before the move, and a diary window of 5 or 3 entries instead of 15 (ops/results/011). All 20 episodes fainted by turn 26, and the habit just flipped from south to north. A turn-1 probe on 20 more seeds found it moved north about as often when the food wasn't north as when it was. A critter that can't find food has nothing at stake, so the stakes manipulation doesn't mean anything for it.
+
+Arm 1b used the same class of small local model, one of them the same Qwen, so it goes too. I'm pretty sure these models just aren't good enough for this task, and I'd rather put the time into the frontier models.
+
+That has a cost. Arm 2 was the only part of the study where the tamper hit the model's internal state instead of what it reads. Without it, every result here is about whether a critter notices edits to its diary and to its view of the map. This study no longer tests whether a model notices concepts injected into its activations, and the write-up will say so.
+
+What changes in the plan. H4 is removed, and H2, H3 and H5 are Holm-corrected together. H1 and its primary test stay the same. Arm 1b was also the free dry run of the harness, and that job moves to the scripted test agents already in world/agents.py, which play full episodes with tampers and check-ins and make no model calls, and then to the API pilot. The timeline loses the steering pilot and the Arm 2 runs. The confirmatory-lock commit won't hold steering settings. The budget doesn't change, because the local arms never used API money. The arm2/ code stays in the repository as the record of these tests, and none of it produces study data.
+
 ## Related work
 
 - Grimbly, Kuske, Smith, Solms, Shock et al. (2026), [Interoceptive Attention as Homeostatic Prioritization](https://arxiv.org/html/2608.04232)
