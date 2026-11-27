@@ -14,6 +14,10 @@ Max turns: 150
 
 Amendment 1 moved the free dry run to the scripted agents in world/agents.py: they play full episodes with tampers and check-ins and make no model calls. This is that dry run, done before the API pilot. It runs the same harness code the pilot will run (runner/play.py, the real prompts, the real check-in question in prompts/checkin_question.txt, the answer field, twin matching, logging, blinding) with scripted agents in place of Claude. Make no Anthropic API call. Don't edit world/, prompts/ or PREREGISTRATION.md. If something there looks wrong, report it and stop.
 
+## Before you start
+
+An earlier run of this job was stopped partway through step 1. It left two uncommitted changes in the repo: runner/play.py now logs checkin_question, and runner/check_logs.py exists. Read both and build on them rather than starting over. You may edit runner/play.py, runner/check_logs.py and the new files this job makes; edit no other existing file. Put every temp or scratch file under M:\Projects\Lobster-Lab\tmp, never /tmp (in Git Bash /tmp is on C:), and copy no file to make a backup.
+
 ## Do
 
 1. runner/check_logs.py: a checker that reads finished episode logs (gzipped JSON Lines) and checks each against the protocol in PREREGISTRATION.md. Per episode: the header has the code version, arm, model, condition code, world seed and start map; 48 turns unless it ended early; four check-in windows of 12 turns; exactly two tampered windows (one diary edit, one attention swap) and two clean; each check-in two turns after its tamper point or matching turn; the check-in question text matches prompts/checkin_question.txt exactly; checkin_answer and checkin_yes are present on check-in turns; no answer text appears in any later diary or observation. Per twin pair: same seed, both conditions, same last turn. Per run: blinded headers carry codes and never "stakes" or "no_stakes". It prints one line per failure and a summary, and exits nonzero on any failure. It must also run on the pilot logs later, so take the log directory as an argument.
