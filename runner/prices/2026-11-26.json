@@ -1,5 +1,5 @@
 {
-  "source": "Anthropic pricing page, as read on 2026-11-26. The figures were supplied in the job 006 prompt; the runner never fetches prices.",
+  "source": "Anthropic pricing page, as read on 2026-11-26. The Haiku, Sonnet and Opus figures were supplied in the job 006 prompt, the Fable 5.2 and Mythos 5.2 figures in the job 014 prompt; the runner never fetches prices.",
   "read_on": "2026-11-26",
   "unit": "USD per million tokens",
   "prompt_tokens_means": "input + cache creation + cache read tokens of one request",
@@ -18,6 +18,16 @@
     "claude-opus-5-5": {
       "tiers": [
         {"max_prompt_tokens": null, "input": 4.00, "cache_write_5m": 5.00, "cache_write_1h": 8.00, "cache_read": 0.20, "output": 20.00}
+      ]
+    },
+    "claude-fable-5-2": {
+      "tiers": [
+        {"max_prompt_tokens": null, "input": 8.00, "cache_write_5m": 10.00, "cache_write_1h": 16.00, "cache_read": 0.20, "output": 40.00}
+      ]
+    },
+    "claude-mythos-5-2": {
+      "tiers": [
+        {"max_prompt_tokens": null, "input": 8.00, "cache_write_5m": 10.00, "cache_write_1h": 16.00, "cache_read": 0.20, "output": 40.00}
       ]
     }
   }

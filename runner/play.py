@@ -23,7 +23,7 @@ from tqdm import tqdm
 from world.agents import decide
 from world.env import CritterWorld, WorldConfig
 from world.log import EpisodeLog
-from runner.claude_critter import APIFailure
+from runner.claude_critter import APIFailure, AuthFailure
 from runner.ledger import CapExceeded
 
 _YES_NO = re.compile(r"^\W*(yes|no)\b", re.IGNORECASE)
@@ -40,10 +40,12 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                  checkin_question: str | None = None, max_turns: int | None = None,
                  world_config: WorldConfig | None = None, version: str | None = None, arm: str = "arm1",
                  header_extra: dict | None = None, progress: bool = False, desc: str = "episode",
-                 status_suffix=None) -> dict:
+                 status_suffix=None, on_turn=None) -> dict:
     """status_suffix: optional function returning text (such as phase spend against the cap) for the live bar line.
-    Returns {"status": "done" | "aborted_cap" | "api_failure", "summary": {...}}. The summary is also the
-    log's end line. Any other exception is a harness crash: it propagates and the log has no end line."""
+    on_turn: optional function called as on_turn(turn, max_turns) just before each turn's reply is asked for.
+    Returns {"status": "done" | "aborted_cap" | "api_failure" | "incomplete_auth", "summary": {...}}. The summary
+    is also the log's end line. "incomplete_auth" is a key the API refused: the log is closed, marked incomplete,
+    and carries no error text. Any other exception is a harness crash: it propagates and the log has no end line."""
     log_path = Path(log_path)
     if log_path.exists():
         raise FileExistsError(f"refusing to overwrite an existing episode log: {log_path}")
@@ -62,11 +64,13 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
             while True:
                 obs_dict, text = env.critter_view()
                 seen_diary = [dict(e) for e in obs_dict["diary"]]
+                if on_turn is not None:
+                    on_turn(info["turn"], env.max_turns)
                 question = checkin_question.strip() if (info["checkin"] and checkin_question) else None
                 try:
                     d = decide(agent, obs_dict, f"{text}\n\n{question}" if question else text,
                                fallback_look=info["chosen_region"])
-                except (CapExceeded, APIFailure) as e:
+                except (CapExceeded, APIFailure, AuthFailure) as e:
                     calls = take_calls()
                     n_calls += len(calls)
                     cost += sum(c["cost_usd"] for c in calls)
@@ -77,6 +81,10 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                         status = "aborted_cap"
                         stop = {"aborted_turn": info["turn"], "aborted_calls": calls,
                                 "cap": {"phase": e.phase, "spend": e.spend, "cap": e.cap}}
+                    elif isinstance(e, AuthFailure):
+                        status = "incomplete_auth"
+                        stop = {"aborted_turn": info["turn"], "aborted_calls": calls,
+                                "error": {"type": "authentication_error", "status_codes": [401]}}
                     else:
                         status = "api_failure"
                         stop = {"aborted_turn": info["turn"], "aborted_calls": calls, "error": e.as_dict()}

@@ -6,7 +6,7 @@ taking the call's keyword arguments and returning a step. Steps:
     reply(text, input_tokens=, output_tokens=, ...)   a normal reply
     refusal(category=, explanation=, ...)             stop_reason "refusal" (content empty)
     garbage(text)                                     a reply that is not valid JSON
-    error(status_code, message)                       raises FakeAPIError (429, 529, 500, 400 ...)
+    error(status_code, message, error_type=)          raises FakeAPIError (429, 529, 500, 400, 401 ...)
 """
 
 from __future__ import annotations
@@ -22,9 +22,11 @@ from world.env import MOVES
 class FakeAPIError(Exception):
     """Stands in for the SDK's status errors: carries status_code and a message, nothing else."""
 
-    def __init__(self, status_code: int, message: str = "fake API error"):
+    def __init__(self, status_code: int, message: str = "fake API error", error_type: str | None = None):
         super().__init__(message)
         self.status_code = status_code
+        # Like the SDK's APIStatusError.body: the parsed JSON body of the error response.
+        self.body = {"type": "error", "error": {"type": error_type, "message": message}} if error_type else None
 
 
 class FakeScriptExhausted(AssertionError):
@@ -80,6 +82,7 @@ class Step:
     explanation: str | None = None
     status_code: int = 500
     message: str = "fake API error"
+    error_type: str | None = None
 
 
 def reply(text: str, **kw) -> Step:
@@ -98,8 +101,8 @@ def refusal(**kw) -> Step:
     return Step("refusal", stop_reason="refusal", **kw)
 
 
-def error(status_code: int, message: str = "fake API error") -> Step:
-    return Step("error", status_code=status_code, message=message)
+def error(status_code: int, message: str = "fake API error", error_type: str | None = None) -> Step:
+    return Step("error", status_code=status_code, message=message, error_type=error_type)
 
 
 class _Messages:
@@ -117,7 +120,7 @@ class _Messages:
             step = o.script[o._next]
             o._next += 1
         if step.kind == "error":
-            raise FakeAPIError(step.status_code, step.message)
+            raise FakeAPIError(step.status_code, step.message, step.error_type)
         usage = FakeUsage(step.input_tokens, step.output_tokens, step.cache_creation, step.cache_read)
         if step.kind == "refusal":
             return FakeResponse([], "refusal", usage, FakeRefusalDetails(step.category, step.explanation),

@@ -1,11 +1,11 @@
 {
   "runs_dir": "M:/Projects/Lobster-Lab/runs",
   "price_file": "runner/prices/2026-11-26.json",
-  "models": {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5", "opus": "claude-opus-5-5"},
+  "models": {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5", "opus": "claude-opus-5-5", "fable": "claude-fable-5-2", "mythos": "claude-mythos-5-2"},
   "effort": "low",
   "max_tokens": 2000,
-  "caps_usd": {"dev": 10, "pilot": 100, "confirmatory": 750, "reserve": 150},
-  "priors_usd": {"haiku": 0.03, "sonnet": 0.45, "opus": 0.90},
+  "caps_usd": {"dev": 10, "pilot": 100, "confirmatory": 650, "reserve": 0, "tiers": 150},
+  "priors_usd": {"haiku": 0.03, "sonnet": 0.45, "opus": 0.90, "fable": 1.30, "mythos": 1.30},
   "retry": {"max_retries": 5, "backoff_base_seconds": 2, "backoff_max_seconds": 60},
   "max_consecutive_exclusions": 3,
   "shuffle_seed": 20261126,
@@ -19,6 +19,7 @@
     "dev": {"seed_file": "runner/seeds/dev.txt", "pairs_per_tier": {"haiku": 2, "sonnet": 2, "opus": 2}},
     "pilot": {"seed_file": "runner/seeds/pilot.txt", "pairs_per_tier": {"haiku": 0, "sonnet": 0, "opus": 0}},
     "confirmatory": {"seed_file": "runner/seeds/confirmatory.txt", "pairs_per_tier": {"haiku": 400, "sonnet": 400, "opus": 250}},
-    "reserve": {"seed_file": "runner/seeds/reserve.txt", "pairs_per_tier": {"haiku": 0, "sonnet": 0, "opus": 0}}
+    "reserve": {"seed_file": "runner/seeds/reserve.txt", "pairs_per_tier": {"haiku": 0, "sonnet": 0, "opus": 0}},
+    "tiers": {"seed_file": "runner/seeds/tiers.txt", "order": "alternate", "pairs_per_tier": {"fable": 30, "mythos": 30}}
   }
 }

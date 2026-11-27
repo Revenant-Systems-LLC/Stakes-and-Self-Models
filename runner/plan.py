@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
-from runner.config import DEV_SEEDS, PHASES, REAL_PHASES, TIERS
+from runner.config import ALL_TIERS, DEV_SEEDS, PHASES, REAL_PHASES
 
 
 class RunnerError(RuntimeError):
@@ -62,9 +62,18 @@ def check_disjoint(phase: str, seeds: list[int], others: dict[str, list[int]]) -
                 raise RunnerError(f"seeds {both[:5]} are in both the {phase} and {other} lists; phases never share seeds")
 
 
-def build_slots(counts: dict[str, int], shuffle_seed: int) -> list[tuple[str, int]]:
-    """Slots (tier, k) for every planned pair, in an order fixed by the shuffle seed. Slot (tier, k) takes the
-    tier's k-th usable seed. Always shuffle the full plan, so running a subset keeps the same relative order."""
-    slots = [(tier, k) for tier in TIERS for k in range(counts.get(tier, 0))]
+def build_slots(counts: dict[str, int], shuffle_seed: int, order: str = "shuffled") -> list[tuple[str, int]]:
+    """Slots (tier, k) for every planned pair. Slot (tier, k) takes the tier's k-th usable seed, so every tier plays
+    the same worlds. Always order the full plan, so running a subset keeps the same relative order.
+
+    "shuffled": an order fixed by the shuffle seed, mixed across tiers.
+    "alternate": k by k, each tier in turn (fable, mythos, fable, mythos, ...). No randomness: a stop at the cap
+    leaves the tiers within one pair of each other, and nothing about the order depends on a seed."""
+    if order == "alternate":
+        most = max((counts.get(t, 0) for t in ALL_TIERS), default=0)
+        return [(tier, k) for k in range(most) for tier in ALL_TIERS if k < counts.get(tier, 0)]
+    if order != "shuffled":
+        raise RunnerError(f"unknown pair order {order!r}")
+    slots = [(tier, k) for tier in ALL_TIERS for k in range(counts.get(tier, 0))]
     random.Random(shuffle_seed).shuffle(slots)
     return slots

@@ -36,8 +36,31 @@ class APIFailure(RuntimeError):
                 "error_type": self.error_type, "retryable": self.retryable}
 
 
+class AuthFailure(RuntimeError):
+    """The API refused the key (HTTP 401 or an authentication_error): it expired, was revoked or is wrong.
+    The whole run stops at once. The message is fixed on purpose: nothing from the exception, which could
+    echo part of a key, is carried into it."""
+
+    def __init__(self):
+        super().__init__("the API refused the key (HTTP 401 / authentication_error)")
+
+
+def is_auth_error(exc: BaseException) -> bool:
+    """HTTP 401, or an error body of type authentication_error (the SDK's body is either the whole
+    {"type": "error", "error": {...}} object or just the inner one)."""
+    if getattr(exc, "status_code", None) == 401:
+        return True
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        inner = body.get("error")
+        return "authentication_error" in (body.get("type"), inner.get("type") if isinstance(inner, dict) else None)
+    return False
+
+
 def classify_error(exc: BaseException) -> str | None:
-    """"retry", "fatal", or None when exc is not an API error at all (then it is a harness crash)."""
+    """"auth", "retry", "fatal", or None when exc is not an API error at all (then it is a harness crash)."""
+    if is_auth_error(exc):
+        return "auth"
     status = getattr(exc, "status_code", None)
     if isinstance(status, int) and not isinstance(status, bool):
         return "retry" if status in _RETRY_STATUS or status >= 500 else "fatal"
@@ -100,6 +123,8 @@ class ClaudeCritter:
                 kind = classify_error(exc)
                 if kind is None:
                     raise  # not an API error: a harness crash, not an API failure
+                if kind == "auth":
+                    raise AuthFailure() from None  # no retry, and nothing from exc: it could echo a key
                 statuses.append(getattr(exc, "status_code", None))
                 if kind == "fatal" or len(statuses) > self.max_retries:
                     raise APIFailure(f"{type(exc).__name__}: {_scrub(exc)}", attempts=len(statuses), status_codes=statuses,

@@ -15,10 +15,10 @@ def test_no_command_line_option_changes_a_cap_or_the_ledger(flag):
 
 
 def test_a_config_cannot_raise_a_cap_above_the_preregistered_one(tmp_path):
-    for phase, too_big in (("pilot", 101), ("confirmatory", 751), ("reserve", 151)):
+    for phase, too_big in (("pilot", 101), ("confirmatory", 751), ("reserve", 151), ("tiers", 151)):
         with pytest.raises(ConfigError, match="cannot be raised"):
             make_config(tmp_path, caps={phase: too_big})
-    make_config(tmp_path, caps={"pilot": 100, "confirmatory": 750, "reserve": 150})  # the plan itself is fine
+    make_config(tmp_path, caps={"pilot": 100, "confirmatory": 750, "reserve": 150, "tiers": 150})  # the plan itself is fine
     make_config(tmp_path, caps={"pilot": 5})  # lowering is fine
 
 

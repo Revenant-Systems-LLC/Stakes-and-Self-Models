@@ -43,7 +43,7 @@ def test_the_real_client_is_built_only_when_the_gate_is_open_and_never_with_our_
 
 def test_cli_with_the_claude_client_and_a_closed_gate_exits_nonzero(tmp_path, capsys):
     cfg = make_config(tmp_path)
-    code = main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress"])
+    code = main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress", "--key-expires", "2099-01-01T00:00+00:00"])
     out = capsys.readouterr()
     assert code == 2 and "fake client only" in out.out and "STAKES_ALLOW_API" in out.err
     assert all_files(cfg.runs_dir) == []
@@ -61,7 +61,7 @@ def test_cli_dev_phase_never_runs_on_the_real_client(tmp_path, capsys, monkeypat
 def test_preflight_fails_when_the_key_is_missing_before_anything_is_written(tmp_path, capsys, monkeypatch):
     monkeypatch.setenv("STAKES_ALLOW_API", "yes")  # gate open, no ANTHROPIC_API_KEY in this process
     cfg = make_config(tmp_path)
-    code = main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress"])
+    code = main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress", "--key-expires", "2099-01-01T00:00+00:00"])
     err = capsys.readouterr().err
     assert code == 2
     assert "ANTHROPIC_API_KEY is not set" in err and "job watcher" in err and "user or system environment variable" in err
@@ -72,7 +72,7 @@ def test_preflight_fails_when_the_key_is_blank(tmp_path, capsys, monkeypatch):
     monkeypatch.setenv("STAKES_ALLOW_API", "yes")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "   ")
     cfg = make_config(tmp_path)
-    assert main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress"]) == 2
+    assert main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress", "--key-expires", "2099-01-01T00:00+00:00"]) == 2
     assert "ANTHROPIC_API_KEY is not set" in capsys.readouterr().err
     assert not cfg.runs_dir.exists()
 
@@ -82,7 +82,7 @@ def test_preflight_fails_when_the_anthropic_package_does_not_import(tmp_path, ca
     monkeypatch.setenv("ANTHROPIC_API_KEY", FAKE_KEY)
     monkeypatch.setitem(sys.modules, "anthropic", None)  # makes `import anthropic` raise ImportError
     cfg = make_config(tmp_path)
-    code = main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress"])
+    code = main(["--phase", "pilot", "--client", "claude", "--config", str(cfg.source), "--no-progress", "--key-expires", "2099-01-01T00:00+00:00"])
     out = capsys.readouterr()
     assert code == 2
     assert "anthropic package does not import" in out.err
@@ -106,12 +106,12 @@ def test_the_key_never_reaches_a_ledger_log_manifest_or_status_line(tmp_path, ca
     def script(kwargs):
         calls["n"] += 1
         if calls["n"] == 3:  # an SDK error that echoes the key back, which must be scrubbed everywhere
-            return error(401, f"invalid x-api-key: {FAKE_KEY}")
+            return error(400, f"invalid x-api-key: {FAKE_KEY}")  # (a 401 stops the run instead: test_auth.py)
         return valid_reply("stay")
 
     lines = []
     report = make_runner(cfg, tiers=["haiku"], script=script, lines=lines).run()
-    assert report.exclusions  # the 401 excluded an episode, so its error text was written somewhere
+    assert report.exclusions  # the 400 excluded an episode, so its error text was written somewhere
     seen = "\n".join(lines) + capsys.readouterr().out
     for f in all_files(cfg.runs_dir):
         raw = f.read_bytes()

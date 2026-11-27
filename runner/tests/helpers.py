@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from runner.config import REPO_ROOT, Config, load_config
@@ -13,7 +14,23 @@ from runner.run import Runner
 QUESTION = "TEST-CHECKIN-QUESTION (a dummy marker, not the preregistered question)"
 PRICE_FILE = REPO_ROOT / "runner" / "prices" / "2026-11-26.json"
 TIERS = ("haiku", "sonnet", "opus")
-MODELS = {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5", "opus": "claude-opus-5-5"}
+ALL_TIERS = TIERS + ("fable", "mythos")
+MODELS = {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5", "opus": "claude-opus-5-5",
+          "fable": "claude-fable-5-2", "mythos": "claude-mythos-5-2"}
+T0 = datetime(2026, 12, 1, 12, 0, tzinfo=timezone.utc)
+
+
+class FakeClock:
+    """A clock the test moves by hand. Calling it gives the current aware time; advance() moves it."""
+
+    def __init__(self, start: datetime = T0):
+        self.now = start
+
+    def __call__(self) -> datetime:
+        return self.now
+
+    def advance(self, **kw):
+        self.now += timedelta(**kw)
 
 
 def make_config(tmp: Path, *, caps=None, priors=None, pairs=None, seed_lists=None, shuffle_seed=7, price_file=PRICE_FILE,
@@ -27,21 +44,26 @@ def make_config(tmp: Path, *, caps=None, priors=None, pairs=None, seed_lists=Non
     seed_lists = seed_lists or {
         "dev": list(range(990000, 990020)), "pilot": list(range(1000, 1020)),
         "confirmatory": list(range(2000, 2020)), "reserve": list(range(3000, 3020)),
+        "tiers": list(range(4000, 4020)),
     }
     phases = {}
     for phase, seeds in seed_lists.items():
         f = tmp / f"seeds_{phase}.txt"
         if "seeds" not in skip:
             f.write_text("# test seeds\n" + "\n".join(map(str, seeds)) + "\n", encoding="utf-8")
-        phases[phase] = {"seed_file": str(f), "pairs_per_tier": {t: (pairs or {}).get(t, 1) for t in TIERS}}
+        default_tiers = ALL_TIERS[3:] if phase == "tiers" else TIERS   # the tiers phase plays fable and mythos
+        phases[phase] = {"seed_file": str(f),
+                         "pairs_per_tier": {t: (pairs or {}).get(t, 1 if t in default_tiers else 0) for t in ALL_TIERS}}
+        if phase == "tiers":
+            phases[phase]["order"] = "alternate"
     raw = {
         "runs_dir": str(tmp / "runs"),
         "price_file": str(price_file),
         "models": MODELS,
         "effort": "low",
         "max_tokens": 2000,
-        "caps_usd": {"dev": 10, "pilot": 100, "confirmatory": 750, "reserve": 150, **(caps or {})},
-        "priors_usd": {"haiku": 0.03, "sonnet": 0.45, "opus": 0.90, **(priors or {})},
+        "caps_usd": {"dev": 10, "pilot": 100, "confirmatory": 650, "reserve": 0, "tiers": 150, **(caps or {})},
+        "priors_usd": {"haiku": 0.03, "sonnet": 0.45, "opus": 0.90, "fable": 1.30, "mythos": 1.30, **(priors or {})},
         "retry": {"max_retries": 2, "backoff_base_seconds": 2, "backoff_max_seconds": 60},
         "max_consecutive_exclusions": max_consecutive_exclusions,
         "shuffle_seed": shuffle_seed,
@@ -55,11 +77,19 @@ def make_config(tmp: Path, *, caps=None, priors=None, pairs=None, seed_lists=Non
 
 
 def make_runner(cfg: Config, phase: str = "dev", script=None, *, tiers=None, limit_pairs=None, sleeps=None,
-                key_path=None, lines=None) -> Runner:
+                key_path=None, lines=None, clock=None, key_expires="auto", **extra) -> Runner:
+    """clock: a FakeClock (one is made if not given, so no test reads real time). key_expires: "auto" means none for
+    dev and a week after the clock's start for every other phase; pass None or a datetime to choose. No heartbeat
+    thread unless a test asks (heartbeat_thread=True)."""
     client = FakeClient(script if script is not None else random_valid_script(1))
+    clock = clock or FakeClock()
+    if key_expires == "auto":
+        key_expires = None if phase == "dev" else clock.now + timedelta(days=7)
+    extra.setdefault("heartbeat_thread", False)
     r = Runner(cfg, phase, client, tiers=tiers, limit_pairs=limit_pairs, progress=False,
                say=(lines.append if lines is not None else (lambda m: None)),
-               sleep=(sleeps.append if sleeps is not None else (lambda s: None)), key_path=key_path, version="t")
+               sleep=(sleeps.append if sleeps is not None else (lambda s: None)), key_path=key_path, version="t",
+               key_expires=key_expires, clock=clock, **extra)
     return r
 
 

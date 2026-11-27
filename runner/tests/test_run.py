@@ -120,7 +120,7 @@ def test_the_edges_of_the_dev_range(tmp_path):
 
 def test_dev_seeds_through_the_command_line_are_refused_too(tmp_path, capsys):
     cfg = make_config(tmp_path, seed_lists={"dev": [990000, 990001], "pilot": [990100, 1]}, pairs={"haiku": 1, "sonnet": 0, "opus": 0})
-    assert main(["--phase", "pilot", "--client", "fake", "--config", str(cfg.source), "--no-progress"]) == 2
+    assert main(["--phase", "pilot", "--client", "fake", "--config", str(cfg.source), "--no-progress", "--key-expires", "2099-01-01T00:00+00:00"]) == 2
     assert "refuses dev seeds" in capsys.readouterr().err and not cfg.runs_dir.exists()
 
 

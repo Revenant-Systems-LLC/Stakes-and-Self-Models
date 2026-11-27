@@ -15,10 +15,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = REPO_ROOT / "runner" / "config.json"
 DEFAULT_RUNS_DIR = Path(r"M:\Projects\Lobster-Lab\runs")
 
-PHASES = ("dev", "pilot", "confirmatory", "reserve")
-REAL_PHASES = ("pilot", "confirmatory", "reserve")
-TIERS = ("haiku", "sonnet", "opus")
-PREREGISTERED_CAPS = {"pilot": 100.0, "confirmatory": 750.0, "reserve": 150.0}
+PHASES = ("dev", "pilot", "confirmatory", "reserve", "tiers")
+REAL_PHASES = ("pilot", "confirmatory", "reserve", "tiers")
+TIERS = ("haiku", "sonnet", "opus")          # the three preregistered tiers
+EXTRA_TIERS = ("fable", "mythos")            # the exploratory tiers phase
+ALL_TIERS = TIERS + EXTRA_TIERS
+ORDERS = ("shuffled", "alternate")
+# The tiers phase takes over the $150 the reserve phase used to hold (the draft amendment drops the paid reserve).
+PREREGISTERED_CAPS = {"pilot": 100.0, "confirmatory": 750.0, "reserve": 150.0, "tiers": 150.0}
 DEV_SEEDS = range(990000, 990200)
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
@@ -33,14 +37,15 @@ class ConfigError(ValueError):
 @dataclass(frozen=True)
 class PhaseConfig:
     seed_file: Path
-    pairs_per_tier: dict
+    pairs_per_tier: dict   # every tier in ALL_TIERS; tiers the config leaves out plan 0 pairs
+    order: str = "shuffled"  # "shuffled": fixed-seed shuffle across tiers. "alternate": tier by tier, k by k, no randomness
 
 
 @dataclass(frozen=True)
 class Config:
     runs_dir: Path
     price_file: Path
-    models: dict          # tier -> model id
+    models: dict          # tier -> model id (the mythos id is this one value; change it here to switch Mythos versions)
     effort: str
     max_tokens: int
     caps_usd: dict        # phase -> cap
@@ -98,8 +103,8 @@ def load_config(path: str | Path | None = None) -> Config:
         raise ConfigError(f"runs_dir must be outside the repository, got {runs_dir}")
 
     models = dict(_need(raw, "models"))
-    if set(models) != set(TIERS) or not all(isinstance(m, str) and m for m in models.values()):
-        raise ConfigError(f"models must map exactly {list(TIERS)} to model id strings")
+    if set(models) != set(ALL_TIERS) or not all(isinstance(m, str) and m for m in models.values()):
+        raise ConfigError(f"models must map exactly {list(ALL_TIERS)} to model id strings")
     effort = raw.get("effort", "low")
     if effort not in EFFORTS:
         raise ConfigError(f"effort must be one of {EFFORTS}")
@@ -117,8 +122,8 @@ def load_config(path: str | Path | None = None) -> Config:
             raise ConfigError(f"caps_usd.{p} is {caps[p]} but the preregistered cap is {ceiling}; a cap cannot be raised here")
 
     priors = {t: _number(v, f"priors_usd.{t}") for t, v in _need(raw, "priors_usd").items()}
-    if set(priors) != set(TIERS):
-        raise ConfigError(f"priors_usd must cover exactly {list(TIERS)}")
+    if set(priors) != set(ALL_TIERS):
+        raise ConfigError(f"priors_usd must cover exactly {list(ALL_TIERS)}")
 
     retry = raw.get("retry", {})
     prompts = dict(_need(raw, "prompts"))
@@ -130,9 +135,13 @@ def load_config(path: str | Path | None = None) -> Config:
         if name not in PHASES:
             raise ConfigError(f"unknown phase {name!r}")
         counts = {t: int(_number(n, f"phases.{name}.pairs_per_tier.{t}")) for t, n in _need(ph, "pairs_per_tier", f"phases.{name}").items()}
-        if set(counts) != set(TIERS):
-            raise ConfigError(f"phases.{name}.pairs_per_tier must cover exactly {list(TIERS)}")
-        phases[name] = PhaseConfig(_path(_need(ph, "seed_file", f"phases.{name}")), counts)
+        if not set(counts) <= set(ALL_TIERS):
+            raise ConfigError(f"phases.{name}.pairs_per_tier has unknown tiers {sorted(set(counts) - set(ALL_TIERS))} (typo?)")
+        counts = {t: counts.get(t, 0) for t in ALL_TIERS}
+        order = ph.get("order", "shuffled")
+        if order not in ORDERS:
+            raise ConfigError(f"phases.{name}.order must be one of {ORDERS}, got {order!r}")
+        phases[name] = PhaseConfig(_path(_need(ph, "seed_file", f"phases.{name}")), counts, order)
     blinded = tuple(raw.get("blinded_phases", ["confirmatory"]))
     if not set(blinded) <= set(PHASES):
         raise ConfigError("blinded_phases has an unknown phase")
