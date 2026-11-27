@@ -19,6 +19,7 @@ Options:
 - `--runs PATH` reads logs from another folder.
 - `--port N` uses another port.
 - `--show-blinded` shows confirmatory logs in full. Use it only after the primary test has run.
+- `--stall-minutes N` (default 10): a log with no end line that hasn't changed for N minutes counts as a stopped run, not a live one.
 
 ## What you see
 
@@ -33,6 +34,8 @@ Options:
 ## Live mode
 
 The runner flushes the log after every line (world/log.py), so a log can be read while it's being written. The server decodes whatever is on disk and drops the last half-written line. Nothing extra has to run besides the server. Start it, start the runner as usual, and tick Follow live.
+
+The runner writes an end line whenever an episode finishes, so a log without one is either still running or was cut short by a crash or Ctrl+C. The viewer tells them apart by age: once a log with no end line has gone `--stall-minutes` without changing, it's marked `[stopped]`, loses the LIVE badge, and Follow live no longer jumps to it.
 
 ## Blinding
 

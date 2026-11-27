@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import gzip
 import json
+import os
 import threading
+import time
 import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -97,6 +99,50 @@ def test_partial_read_of_a_log_mid_write(runs, tmp_path):
     assert 10 <= len(t) <= 12
     v = logread.episode_view(cut, "running.jsonl.gz")
     assert v["running"] and v["map_ok"]
+
+
+def _no_end_copy(runs: Path, dest: Path, turns: int = 5) -> Path:
+    """A copy of the pilot log cut before its end line, like a run that crashed mid-episode."""
+    header, recs, _ = logread.read_partial(_log(runs, "pilot"))
+    lines = [json.dumps(header)] + [json.dumps(t) for t in recs[:turns]]
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(gzip.compress(("\n".join(lines) + "\n").encode()))
+    return dest
+
+
+def _age(p: Path, seconds: float):
+    t = time.time() - seconds
+    os.utime(p, (t, t))
+
+
+def test_log_without_end_line_stops_counting_as_running_when_quiet(runs, tmp_path):
+    p = _no_end_copy(runs, tmp_path / "crashed.jsonl.gz")
+    fresh = logread.episode_summary(p, "crashed.jsonl.gz")
+    assert fresh["running"] and not fresh["stopped"]
+    assert logread.episode_view(p, "crashed.jsonl.gz")["running"]
+
+    _age(p, 11 * 60)  # quiet past the default 10 minutes
+    s = logread.episode_summary(p, "crashed.jsonl.gz")
+    v = logread.episode_view(p, "crashed.jsonl.gz")
+    assert not s["running"] and s["stopped"] and s["status"] == "stopped"
+    assert not v["running"] and v["stopped"] and v["end"] is None
+
+    # the threshold is a setting
+    assert logread.episode_summary(p, "crashed.jsonl.gz", stall_after=20 * 60)["running"]
+    # a finished log is never stopped, however old
+    done = _log(runs, "pilot")
+    _age(done, 3600)
+    assert not logread.episode_summary(done, "x")["stopped"]
+
+
+def test_server_list_marks_stale_run_stopped(runs, tmp_path):
+    root = tmp_path / "runs"
+    p = _no_end_copy(runs, root / "pilot" / "logs" / "sonnet" / "9-stakes.jsonl.gz")
+    _age(p, 11 * 60)
+    eps = server.list_episodes(root, {"blinded_phases": ("confirmatory",), "show_blinded": False, "stall_after": 600})
+    assert [(e["running"], e["stopped"]) for e in eps] == [(False, True)]
+    eps = server.list_episodes(root, {"blinded_phases": ("confirmatory",), "show_blinded": False, "stall_after": 3600})
+    assert [(e["running"], e["stopped"]) for e in eps] == [(True, False)]
 
 
 def test_server_refuses_paths_outside_runs(runs):

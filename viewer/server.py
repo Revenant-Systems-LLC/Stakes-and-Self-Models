@@ -128,12 +128,15 @@ def main(argv=None):
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--show-blinded", action="store_true",
                     help="show condition and check-in data in blinded confirmatory logs; only after the primary test has run")
+    ap.add_argument("--stall-minutes", type=float, default=10.0,
+                    help="a log with no end line that hasn't changed for this long counts as a stopped run, not a live one")
     ap.add_argument("--heartbeat", type=float, default=30.0, help="seconds between status lines")
     a = ap.parse_args(argv)
     cfg = load_config()
     runs = DEMO_RUNS if a.demo else (a.runs or Path(cfg.get("runs_dir") or ROOT / "runs"))
     Handler.runs = runs
-    Handler.opts = {"blinded_phases": tuple(cfg.get("blinded_phases") or ("confirmatory",)), "show_blinded": a.show_blinded}
+    Handler.opts = {"blinded_phases": tuple(cfg.get("blinded_phases") or ("confirmatory",)), "show_blinded": a.show_blinded,
+                     "stall_after": a.stall_minutes * 60}
     Handler.caps = cfg.get("caps_usd") or {}
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), Handler)
     print(f"Clawlings viewer: open http://127.0.0.1:{a.port}", flush=True)

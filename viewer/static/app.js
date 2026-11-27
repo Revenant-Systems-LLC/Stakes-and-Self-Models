@@ -29,7 +29,7 @@ async function getJSON(url) {
 // ---------------------------------------------------------------- episodes list
 function label(e) {
   const bits = [e.phase || "?", e.tier || e.model || "?", `seed ${e.seed}`, e.label, `${e.turns}t`];
-  return (e.running ? "● LIVE  " : "") + bits.join(" · ") + (e.blinded ? "  [blinded]" : "");
+  return (e.running ? "● LIVE  " : "") + bits.join(" · ") + (e.stopped ? "  [stopped]" : "") + (e.blinded ? "  [blinded]" : "");
 }
 
 async function refreshList() {
@@ -159,7 +159,7 @@ function vitals(f) {
   let body = `<div class="kv"><span>name</span><span>${name}</span><span>model</span><span>${h.model || "?"}</span>` +
     `<span>run</span><span>${h.phase || "?"} · ${h.tier || "?"} · seed ${h.world_seed}</span>` +
     `<span>label</span><span>${h.condition_code}</span>` +
-    `<span>status</span><span>${e.running ? "running" : (e.end && e.end.status) || "done"}</span></div>`;
+    `<span>status</span><span>${e.running ? "running" : e.stopped ? "stopped, no end line" : (e.end && e.end.status) || "done"}</span></div>`;
   if (e.blinded) {
     body += `<p class="note">Blinded run: vitals, diary and check-in answers stay hidden until the primary test has run.</p>`;
   } else if (rec.energy != null) {

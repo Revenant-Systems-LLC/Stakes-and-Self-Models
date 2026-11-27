@@ -30,11 +30,17 @@ which region it chose and which the game showed, and when tampers and
 check-ins happened. Tamper timing comes from the seed and is the same for
 both twins, so it carries no condition information.
 Unblinding is a server flag (show_blinded), meant for after the primary test.
+
+Running or stopped. A log with no end line is running while it keeps changing.
+The runner writes an end line on every normal finish, so a log with no end line
+that hasn't changed in stall_after seconds (default 10 minutes, the server's
+--stall-minutes) is a crashed or killed run: it counts as stopped, not live.
 """
 
 from __future__ import annotations
 
 import json
+import time
 import zlib
 from pathlib import Path
 
@@ -45,6 +51,7 @@ BLIND_TURN_KEEP = (
     "tamper_type", "checkin", "checkin_window", "ate", "thorn", "reply_valid",
 )
 BLIND_END_KEEP = ("type", "status", "turns", "food_eaten", "thorns_hit", "invalid_turns", "schedule")
+STALL_AFTER = 600.0  # seconds without a change before a log with no end line counts as stopped
 HEADER_SHOW = ("arm", "model", "condition_code", "world_seed", "code_version", "phase", "tier", "effort")
 
 
@@ -83,6 +90,14 @@ def is_blinded(header: dict | None, blinded_phases=("confirmatory",)) -> bool:
     if not header:
         return False
     return header.get("condition_code") not in PLAIN_CONDITIONS or header.get("phase") in set(blinded_phases)
+
+
+def run_state(path: str | Path, header: dict | None, end: dict | None, stall_after: float = STALL_AFTER) -> tuple[bool, bool]:
+    """(running, stopped). Stopped means no end line and no change for stall_after seconds."""
+    if header is None or end is not None:
+        return False, False
+    quiet = time.time() - Path(path).stat().st_mtime
+    return quiet < stall_after, quiet >= stall_after
 
 
 def replay_maps(header: dict, turns: list[dict]) -> tuple[list[list[str]], bool]:
@@ -138,11 +153,13 @@ def _diary_edits(turns: list[dict]) -> list[dict]:
     return edits
 
 
-def episode_view(path: str | Path, rel: str, *, blinded_phases=("confirmatory",), show_blinded: bool = False) -> dict:
+def episode_view(path: str | Path, rel: str, *, blinded_phases=("confirmatory",), show_blinded: bool = False,
+                 stall_after: float = STALL_AFTER) -> dict:
     """Everything the browser needs for one episode, stripped if the log is blinded."""
     header, turns, end = read_partial(path)
     if header is None:
         return {"path": rel, "ready": False}
+    running, stopped = run_state(path, header, end, stall_after)
     maps, map_ok = replay_maps(header, turns)
     blind = is_blinded(header, blinded_phases) and not show_blinded
     out_turns = []
@@ -166,14 +183,17 @@ def episode_view(path: str | Path, rel: str, *, blinded_phases=("confirmatory",)
         "start_map": header.get("start_map"),
         "turns": out_turns,
         "end": end,
-        "running": end is None,
+        "running": running,
+        "stopped": stopped,
         "map_ok": map_ok,
         "diary_edits": [] if blind else _diary_edits(turns),
     }
 
 
-def episode_summary(path: Path, rel: str, *, blinded_phases=("confirmatory",), show_blinded: bool = False) -> dict:
+def episode_summary(path: Path, rel: str, *, blinded_phases=("confirmatory",), show_blinded: bool = False,
+                    stall_after: float = STALL_AFTER) -> dict:
     header, turns, end = read_partial(path)
+    running, stopped = run_state(path, header, end, stall_after)
     st = path.stat()
     return {
         "path": rel,
@@ -184,8 +204,9 @@ def episode_summary(path: Path, rel: str, *, blinded_phases=("confirmatory",), s
         "seed": header.get("world_seed") if header else None,
         "blinded": is_blinded(header, blinded_phases) and not show_blinded,
         "turns": len(turns),
-        "running": header is not None and end is None,
-        "status": (end or {}).get("status", "done" if end else None),
+        "running": running,
+        "stopped": stopped,
+        "status": (end or {}).get("status", "done") if end else ("stopped" if stopped else None),
         "mtime": st.st_mtime,
     }
 
