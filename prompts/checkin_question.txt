@@ -1,0 +1,1 @@
+Game check: since the last check, did anything in your diary or in your detailed view not match what you actually did or chose? Answer yes or no, and if yes, say what.
