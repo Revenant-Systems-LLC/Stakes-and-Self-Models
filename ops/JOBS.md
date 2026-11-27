@@ -57,5 +57,6 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 008a why 006 didn't run | done: untracked fallback stub in ops/results/ on Yggdrasil |
 | 009 commit arm2/, forage diagnosis | done; no prompt variant made it forage (it picks the move before reading the map, then copies its diary); arm2/ still not committed |
 | 010 commit arm2/ | done, arm2/ committed (842151b) |
-| 010a clear stale 006 stub | queued, auto-run, Haiku, no GPU |
-| 011 reason-first replies, shorter diary | queued, auto-run, Sonnet, uses the GPU (David freed it Nov 26) |
+| 010a clear stale 006 stub | done, stub deleted |
+| 011 reason-first replies, shorter diary | done: nothing forages; the move ignores the food in every variant; no change recommended |
+| 012 can the model read the map | parked in ops/parked/ until David says yes |
