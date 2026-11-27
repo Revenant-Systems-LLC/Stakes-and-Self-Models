@@ -1,6 +1,7 @@
 """Tests for job 005: own-cell line, GreedyAgent, blinded condition codes."""
 
 import json
+import os
 
 import pytest
 
@@ -147,6 +148,13 @@ def test_blinding_never_overwrites_an_existing_key(tmp_path):
 def test_blinding_refuses_a_key_inside_the_repo():
     with pytest.raises(ValueError):
         blinding.key_path(blinding.REPO_ROOT / "world" / "key.json")
+
+
+# DEFAULT_KEY_PATH is a Windows drive path (M:\\...). Off Windows it is relative,
+# resolves under the working directory, and key_path() refuses it, which is safe
+# but makes this check meaningless there. The study runs on Windows.
+@pytest.mark.skipif(os.name != "nt", reason="default key path is a Windows drive path")
+def test_default_key_path_is_outside_the_repo():
     assert blinding.REPO_ROOT not in blinding.DEFAULT_KEY_PATH.resolve().parents
 
 
