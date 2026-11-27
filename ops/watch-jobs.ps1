@@ -15,8 +15,9 @@
 # given to Claude Code. Any output line that looks like a key is redacted.
 # Self-update: between jobs, if git pull changed this script, it restarts into
 # the new version on its own.
-# Total cap: no job starts if all logged Claude Code job spend plus its budget
-# would pass $100 (-TotalCapUsd).
+# Total cap: no job starts if Claude Code job spend logged since -CapSince plus
+# its budget would pass $45 (-TotalCapUsd). Preregistration amendment 2 sets
+# that cap, counted from Nov 27 2026 local date.
 #
 # Nothing here should look frozen: every Claude Code step prints as it happens,
 # a heartbeat prints at least every 30 seconds while a job runs, and the idle
@@ -39,7 +40,8 @@ param(
     [double]$AutoJobCapUsd = 5.00,
     [double]$AutoDayCapUsd = 25.00,
     [string]$DefaultModel = "sonnet",
-    [double]$TotalCapUsd = 100.00,
+    [double]$TotalCapUsd = 45.00,
+    [string]$CapSince = "2026-11-27",
     [string]$VaultPath = "A:\env\Clawlings.dpapi",
     [string]$VenvPython = "M:\Projects\Lobster-Lab\.venv\Scripts\python.exe"
 )
@@ -71,11 +73,11 @@ function Get-SpendToday([string]$mode) {
     return $sum
 }
 
-# All Claude Code job spend this watcher has logged, every day and mode.
-# Spend from before Nov 26 2026 (jobs 003b and 004) isn't in these files.
+# Claude Code job spend this watcher has logged since -CapSince, every mode.
 function Get-SpendTotal {
     $sum = 0.0
     foreach ($f in Get-ChildItem -Path $logDir -Filter "spend-*.txt" -ErrorAction SilentlyContinue) {
+        if ($f.BaseName.Substring(6) -lt $CapSince) { continue }
         foreach ($line in Get-Content $f.FullName) {
             $parts = $line -split "`t"
             if ($parts.Count -ge 4) { $sum += [double]$parts[3] }
