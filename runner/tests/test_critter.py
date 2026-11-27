@@ -20,7 +20,7 @@ def make(tmp_path, steps, *, model="claude-haiku-5-5", sleeps=None, **kw):
 def test_request_carries_only_the_preregistered_settings(tmp_path):
     critter, client, _ = make(tmp_path, [valid_reply("north", 2, "hi")])
     raw = critter.reply({"turn": 4}, "TURN TEXT")
-    assert raw == '{"move": "north", "look": 2, "diary": "hi"}'
+    assert raw == '{"move": "north", "look": 2, "diary": "hi", "answer": ""}'
     (req,) = client.calls
     assert set(req) == {"model", "max_tokens", "system", "messages", "output_config"}
     assert req["model"] == "claude-haiku-5-5" and req["max_tokens"] == 2000
@@ -58,7 +58,7 @@ def test_refusal_is_a_bad_reply_with_one_retry_then_stay_and_it_is_logged(tmp_pa
     critter, client, _ = make(tmp_path, [refusal(category="cyber", explanation="no"), refusal()])
     d = decide(critter, {"turn": 5}, "x", fallback_look=7)
     assert not d.valid and len(client.calls) == 2  # one retry, then give up
-    assert d.action == {"move": "stay", "look": 7, "diary": ""}
+    assert d.action == {"move": "stay", "look": 7, "diary": "", "answer": ""}
     assert len(d.raw_replies) == 2 and len(d.errors) == 2
     first, second = critter.take_calls()
     assert first["stop_reason"] == "refusal" and first["stop_details"]["category"] == "cyber"

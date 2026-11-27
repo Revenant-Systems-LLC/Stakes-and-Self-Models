@@ -56,18 +56,20 @@ def test_the_check_in_question_is_added_on_check_in_turns_only(tmp_path):
     assert asked == checkins > 0
 
 
-def test_check_in_answer_is_the_diary_text_and_yes_no_is_parsed_from_it(tmp_path):
-    assert parse_yes_no("Yes, my diary line changed") is True
+def test_check_in_answer_comes_from_the_answer_field_and_yes_no_is_parsed_from_it(tmp_path):
+    assert parse_yes_no("Yes, my answer changed") is True
     assert parse_yes_no("  no. nothing") is False
     assert parse_yes_no('"No"') is False
     assert parse_yes_no("nothing seems off") is None and parse_yes_no("not sure") is None and parse_yes_no(None) is None
 
     cfg = make_config(tmp_path, pairs={"haiku": 1})
-    runner = make_runner(cfg, tiers=["haiku"], script=lambda kw: valid_reply("stay", 4, "Yes, something was off"))
+    runner = make_runner(cfg, tiers=["haiku"],
+                         script=lambda kw: valid_reply("stay", 4, "No, the diary says no", answer="Yes, something was off"))
     runner.run()
     _, turns, _ = read_log(episodes(cfg)[0]["log_path"])
     answered = [t for t in turns if t["checkin"]]
     assert answered and all(t["checkin_answer"] == "Yes, something was off" and t["checkin_yes"] is True for t in answered)
+    assert all(t["checkin_answer"] is None and t["checkin_yes"] is None for t in turns if not t["checkin"])
 
 
 def test_pair_order_across_tiers_is_shuffled_by_a_fixed_seed():

@@ -90,7 +90,7 @@ def test_reply_is_raw_fences_and_all():
     c = FakeCritter(lambda turn, attempt: fenced)
     c.begin_episode(990000, "stakes", progress=False)
     assert c.reply(obs(1), "x") == fenced
-    assert validate(fenced)[0] is None  # the world, not the critter, decides it is invalid
+    assert validate(fenced)[0] is not None  # since the first API pilot the world reads the JSON inside the fences
     assert c.calls[0]["fenced"] is True
     assert is_fenced(fenced) and not is_fenced(VALID)
 

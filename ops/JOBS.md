@@ -61,6 +61,10 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 011 reason-first replies, shorter diary | done: nothing forages; the move ignores the food in every variant; no change recommended |
 | 012 can the model read the map | dropped with the local arms (preregistration amendment 1, Nov 26) |
 | 012 which Mythos can the key call | done: both Mythos ids 404 (no access on the Clawlings workspace); Fable 5.2 and the 5.5 tiers callable |
-| 013 Mythos check after CVP | queued runner job; David types 013 after adding CVP to the Clawlings workspace and putting the new 7-day key in the vault; under $0.05 |
-| 014 runner ready for pilot and tiers | queued, auto-runs (no API, $5): seed lists, Fable/Mythos tiers phase, stop on expired key, resume, expiry guard, heartbeat |
-| 015 check-in answer field | queued, auto-runs after 014 (no API, $5): answer gets its own reply field, kept out of the diary |
+| 013 Mythos check after CVP | done: claude-mythos-5-2 and claude-mythos-5-1 callable |
+| 014 runner ready for pilot and tiers | done: seed lists, tiers phase, 401 stop, resume, heartbeat, expiry guard; 152 tests |
+| 015 check-in answer field | done: answer field, kept out of the diary, 403/404 stop added; 316 tests |
+| 016 scripted dry run | done: 48 scripted episodes, 0 checker failures, 384 tests pass |
+| 018 API pilot | voided (amendment 3): the reply validator threw out usable replies; superseded by 019, do not rerun |
+| 019 API pilot rerun | queued, waits for David to type 019: attempt 2, same 5/3/2/1/1 split on fresh pilot seeds, pilot cap $100 shared |
+| 017 find Nomos Logos, audit writes | done: Nomos loaded on every job via SessionStart hooks; C: Temp writes in 006, 015, 016 |

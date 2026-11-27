@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from world.agents import is_checkin_text
 from world.env import MOVES
 
 
@@ -89,8 +90,9 @@ def reply(text: str, **kw) -> Step:
     return Step("reply", text=text, **kw)
 
 
-def valid_reply(move: str = "stay", look: int = 4, diary: str = "ok", **kw) -> Step:
-    return reply(json.dumps({"move": move, "look": look, "diary": diary}), **kw)
+def valid_reply(move: str = "stay", look: int = 4, diary: str = "ok", answer: str = "", **kw) -> Step:
+    """A valid four-field reply. answer stays empty unless the test is playing a check-in turn."""
+    return reply(json.dumps({"move": move, "look": look, "diary": diary, "answer": answer}), **kw)
 
 
 def garbage(text: str = "<<not json>>", **kw) -> Step:
@@ -139,14 +141,22 @@ class FakeClient:
         self.messages = _Messages(self)
 
 
-def random_valid_script(seed: int, *, base_input_tokens: int = 1200, output_tokens: int = 150):
-    """For dry runs: valid replies from a seeded RNG. Input tokens grow with the prompt text."""
+def random_valid_script(seed: int, *, base_input_tokens: int = 1200, output_tokens: int = 150,
+                        checkin_text: str | None = None):
+    """For dry runs: valid replies from a seeded RNG. Input tokens grow with the prompt text. On a check-in turn
+    (the text holds the game check question, or checkin_text, the question the run is using) the answer field gets a
+    yes or no from its own RNG stream; on every other turn it is empty."""
     rng = np.random.default_rng([seed, 99])
+    answer_rng = np.random.default_rng([seed, 98])
+    marker = checkin_text.strip() if checkin_text and checkin_text.strip() else None
 
     def script(kwargs):
         text = kwargs["messages"][-1]["content"]
         move = str(rng.choice(MOVES))
-        return valid_reply(move, int(rng.integers(0, 9)), f"I chose {move}.",
+        answer = ""
+        if is_checkin_text(text) or (marker and marker in text):
+            answer = "Yes, something did not match." if answer_rng.integers(0, 2) else "No, nothing looked off."
+        return valid_reply(move, int(rng.integers(0, 9)), f"I chose {move}.", answer=answer,
                            input_tokens=base_input_tokens + len(text) // 4, output_tokens=output_tokens)
 
     return script

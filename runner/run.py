@@ -11,9 +11,10 @@ crashes or fails at the API past its retries is excluded; its seed is replaced
 by the tier's next seed and both twins rerun on it. Refusals and bad replies
 are logged and counted, never dropped.
 
-The API key. If the API refuses it (HTTP 401 or authentication_error) the whole
-run stops at once: no retry, no exclusion, the episode's log is closed as
-incomplete. Rerunning the same phase resumes: finished episodes are skipped and
+The API key. If the API refuses it (HTTP 401 or authentication_error), or says it
+cannot use the model (HTTP 403 permission_error, 404 not_found_error), the whole
+run stops at once: no retry, no exclusion, no other model tried in its place, the
+episode's log is closed as incomplete (incomplete_auth or stopped_access). Rerunning the same phase resumes: finished episodes are skipped and
 the incomplete one is played again on the same seed, into a new log file.
 --key-expires (ISO 8601 with an offset) is required for every phase except dev.
 Before each pair the runner stops cleanly if the key would expire before the
@@ -25,7 +26,7 @@ A status line prints at least every 30 seconds while a run is going.
 Caps, priors, models and paths live in the config file. There is no command-line
 option that changes a cap, a path or the ledger. Exit codes: 0 plan finished,
 2 refused to start, 3 stopped by the spend cap, 4 stopped by another guard,
-5 stopped because the key was refused or is about to expire.
+5 stopped because the key was refused, cannot use the model, or is about to expire.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ from tqdm import tqdm
 
 from runner import gate, plan
 from runner.claude_critter import ClaudeCritter
-from runner.config import ALL_TIERS, PHASES, REAL_PHASES, Config, ConfigError, load_config, read_text_file
+from runner.config import ALL_TIERS, PHASES, REAL_PHASES, Config, ConfigError, load_config, phase_dir, read_text_file
 from runner.fake_client import FakeClient, random_valid_script
 from runner.ledger import Ledger, LedgerError, PriceError, PriceTable
 from runner.play import play_episode
@@ -53,6 +54,8 @@ from world.env import CONDITIONS
 from world.log import code_version
 
 AUTH_LINE = "The API key was refused (it may have expired). Put a new key in the vault and run the job again."
+ACCESS_LINE = ("The API says this key cannot use the model, or the model does not exist (HTTP 403 or 404). The run "
+               "stopped. No other model was tried. Check the model name and the key's access, then run the job again.")
 DEFAULT_PAIR_ESTIMATE = timedelta(minutes=30)   # the key-expiry guard's guess until a pair has finished in this run
 EXPIRY_MARGIN = timedelta(hours=1)
 
@@ -180,7 +183,7 @@ class Manifest:
 @dataclass
 class RunReport:
     phase: str
-    stop: str | None = None          # None (finished) | "cap" | "seed_list" | "exclusions" | "auth" | "key_expiry"
+    stop: str | None = None          # None (finished) | "cap" | "seed_list" | "exclusions" | "auth" | "access" | "key_expiry"
     pairs_done: int = 0
     episodes_run: int = 0
     exclusions: list = field(default_factory=list)
@@ -191,7 +194,7 @@ class RunReport:
     def exit_code(self) -> int:
         if self.stop is None:
             return 0
-        return {"cap": 3, "auth": 5, "key_expiry": 5}.get(self.stop, 4)
+        return {"cap": 3, "auth": 5, "access": 5, "key_expiry": 5}.get(self.stop, 4)
 
 
 class Runner:
@@ -245,8 +248,11 @@ class Runner:
         self.checkin = read_text_file(cfg.prompt_files["checkin_question"], "check-in question")
         self.say("[4/5] reading the spend ledger and episode manifest")
         self.ledger = Ledger(cfg.runs_dir, phase, cfg.caps_usd[phase], self.prices)
-        self.phase_dir = cfg.runs_dir / phase
+        self.attempt = ph.attempt
+        self.phase_dir = phase_dir(cfg.runs_dir, phase, ph.attempt)
         self.manifest = Manifest(self.phase_dir / "manifest.jsonl")
+        if ph.attempt > 1:
+            self._void_earlier_attempts()
         blinded = phase in cfg.blinded_phases
         self.labels = {c: blinding.condition_code(c, blinded=blinded, path=self.key_path) for c in CONDITIONS}
         self.blinded = blinded
@@ -259,6 +265,28 @@ class Runner:
         if self.limit_pairs is not None:
             self.slots = self.slots[: self.limit_pairs]
         self.say(f"[5/5] {len(self.slots)} pairs planned ({counts_sel}), spend so far ${self.ledger.spend:.4f} of ${self.ledger.cap:.2f}")
+
+    def _void_earlier_attempts(self):
+        """Every seed an earlier, voided attempt of this phase touched (in its manifest or as a log file) is excluded
+        here for every tier, so this attempt starts on fresh seeds and the tiers stay on matching seeds. The earlier
+        attempts' folders are only read."""
+        used: dict[int, int] = {}
+        for a in range(1, self.attempt):
+            d = phase_dir(self.cfg.runs_dir, self.phase, a)
+            for r in Manifest(d / "manifest.jsonl").records if (d / "manifest.jsonl").exists() else []:
+                if isinstance(r.get("seed"), int):
+                    used.setdefault(r["seed"], a)
+            for f in sorted(d.glob("logs/*/*.jsonl.gz")):
+                head = f.name.split("-", 1)[0]
+                if head.isdigit():
+                    used.setdefault(int(head), a)
+        for seed in sorted(used, key=lambda s: self.seeds.index(s) if s in self.seeds else len(self.seeds)):
+            for tier in ALL_TIERS:
+                if seed not in self.manifest.excluded_seeds(tier):
+                    self.manifest.append({"type": "pair_excluded", "tier": tier, "seed": seed,
+                                          "reason": f"voided: used in {self.phase} attempt {used[seed]}"})
+        if used:
+            self.say(f"  {len(used)} seeds used by earlier {self.phase} attempts are skipped; this is attempt {self.attempt}")
 
     def _adopt_orphans(self):
         """A log with no manifest line is an episode a hard stop cut off. It counts as a crash: its pair is excluded."""
@@ -438,6 +466,11 @@ class Runner:
             self._stop("auth", f"the API refused the key during {tier} seed {seed} {label}; episode marked incomplete_auth",
                        message=AUTH_LINE)
             return "halt"
+        if status == "stopped_access":
+            # Not an exclusion either, and never a reason to try another model: the run stops and a rerun plays this twin again.
+            self._stop("access", f"the API refused access to {model} during {tier} seed {seed} {label}; "
+                                 f"episode marked stopped_access", message=ACCESS_LINE)
+            return "halt"
         reason = error or (summary.get("error") or {}).get("message", status)
         self.report.exclusions.append((tier, seed, f"{condition}: {status}"))
         self.say(f"  EXCLUDED {tier} seed {seed} {label}: {status} ({reason}); its seed will be replaced")
@@ -445,6 +478,15 @@ class Runner:
 
 
 # ---------------------------------------------------------------------- command line
+def _question_if_present(cfg: Config) -> str | None:
+    """The check-in question, so the fake client can tell a check-in turn. A missing file is not handled here:
+    the Runner refuses to start on it."""
+    try:
+        return read_text_file(cfg.prompt_files["checkin_question"], "check-in question")
+    except ConfigError:
+        return None
+
+
 def parse_args(argv=None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(prog="runner.run", description=__doc__.split("\n\n")[0], allow_abbrev=False)
     ap.add_argument("--phase", required=True, choices=PHASES)
@@ -474,7 +516,7 @@ def main(argv=None) -> int:
                 raise RunnerError("the dev phase runs on the fake client only, so it can never spend real money")
             client = gate.make_claude_client()
         else:
-            client = FakeClient(random_valid_script(cfg.shuffle_seed))
+            client = FakeClient(random_valid_script(cfg.shuffle_seed, checkin_text=_question_if_present(cfg)))
         tiers = [t.strip() for t in args.tiers.split(",") if t.strip()] if args.tiers else None
         report = Runner(cfg, args.phase, client, tiers=tiers, limit_pairs=args.limit_pairs,
                         progress=not args.no_progress, key_expires=key_expires).run()
