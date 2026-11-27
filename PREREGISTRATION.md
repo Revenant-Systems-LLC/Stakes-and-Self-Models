@@ -217,6 +217,8 @@ How I tune it. Pilot attempt 3 is a tuning round at food density 0.16 on the nex
 
 Attempt 2 isn't voided. Its costs set N for the tiers phase, since more food doesn't change how long a Fable or Mythos episode runs. The tuning round's Haiku and Sonnet costs update the confirmatory estimate, because fewer faints mean longer episodes. Attempt 2's seeds are skipped for every tier the same way attempt 1's are, so pilot seeds still never repeat.
 
+Attempt 3 result, added November 27 before attempt 4 ran (ops/results/024). At 0.16, 0 of 12 Haiku and 2 of 6 Sonnet stakes episodes fainted, both from running out of energy. Weighted by the planned 400 Haiku and 400 Sonnet confirmatory pairs, that's 16.7%, which misses the 15% line, so attempt 4 runs at 0.20 with 12 Haiku and 6 Sonnet pairs on the next unused pilot seeds. I'm setting what happens after it now too. If 0.20 passes, it's the density. If it misses, I stop tuning and post an amendment before any tiers or confirmatory episode, because only 8 pilot seeds would be left, too few for another round of this size.
+
 ## Related work
 
 - Grimbly, Kuske, Smith, Solms, Shock et al. (2026), [Interoceptive Attention as Homeostatic Prioritization](https://arxiv.org/html/2608.04232)

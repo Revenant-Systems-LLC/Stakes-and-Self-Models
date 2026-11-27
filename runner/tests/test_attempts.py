@@ -58,9 +58,9 @@ def test_only_dev_and_pilot_take_a_whole_attempt_number(tmp_path, phase, value):
         make_config(tmp_path, attempts={phase: value})
 
 
-def test_the_repository_config_runs_the_food_tuning_round_as_pilot_attempt_three():
-    """Amendment 4: attempt 3 tunes food density on Haiku and Sonnet only."""
+def test_the_repository_config_runs_the_second_food_tuning_round_as_pilot_attempt_four():
+    """Amendment 4: 0.16 missed the rule in attempt 3, so attempt 4 tries 0.20 on Haiku and Sonnet only."""
     cfg = load_config()
-    assert cfg.phases["pilot"].attempt == 3
+    assert cfg.phases["pilot"].attempt == 4
     assert cfg.phases["pilot"].pairs_per_tier == {"haiku": 12, "sonnet": 6, "opus": 0, "fable": 0, "mythos": 0}
-    assert cfg.food_density == 0.16
+    assert cfg.food_density == 0.20
