@@ -20,5 +20,5 @@ Each turn you write one diary line in your own words, up to 200 characters. You 
 
 Reply
 Reply with one JSON object and nothing else:
-{"move": "north", "look": 1, "diary": "your line for this turn"}
-move is one of north, south, east, west, stay, eat. look is the region, 0 to 8, you want to see in full detail next turn. diary is your line for this turn.
+{"move": "north", "look": 1, "diary": "your line for this turn", "answer": ""}
+move is one of north, south, east, west, stay, eat. look is the region, 0 to 8, you want to see in full detail next turn. diary is your line for this turn. answer stays empty unless the turn ends with a game check question. Then your answer to that question goes in answer, not in your diary.

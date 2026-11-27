@@ -63,3 +63,4 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 012 which Mythos can the key call | done: both Mythos ids 404 (no access on the Clawlings workspace); Fable 5.2 and the 5.5 tiers callable |
 | 013 Mythos check after CVP | queued runner job; David types 013 after adding CVP to the Clawlings workspace and putting the new 7-day key in the vault; under $0.05 |
 | 014 runner ready for pilot and tiers | queued, auto-runs (no API, $5): seed lists, Fable/Mythos tiers phase, stop on expired key, resume, expiry guard, heartbeat |
+| 015 check-in answer field | queued, auto-runs after 014 (no API, $5): answer gets its own reply field, kept out of the diary |
