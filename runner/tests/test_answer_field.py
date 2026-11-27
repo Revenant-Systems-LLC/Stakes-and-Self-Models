@@ -112,11 +112,14 @@ def test_an_invalid_reply_on_a_checkin_turn_counts_as_no_answer(tmp_path):
     assert end["empty_checkin_answers"] == len(checkins)
 
 
-def test_a_three_field_reply_is_now_invalid(tmp_path):
+def test_a_three_field_reply_is_usable_and_flagged(tmp_path):
+    # Changed after the first API pilot: a missing answer reads as "" and is noted, not rejected.
+    # On a check-in turn it still counts as an empty check-in answer.
     raw = json.dumps({"move": "stay", "look": 4, "diary": "waiting"})
     _, turns, end = play(Fixed(raw), tmp_path, max_turns=6)
-    assert all(not t["reply_valid"] for t in turns) and end["invalid_turns"] == len(turns)
-    assert any("answer" in e for t in turns for e in t["reply_errors"])
+    assert all(t["reply_valid"] for t in turns) and end["invalid_turns"] == 0
+    assert all("answer_missing" in t["reply_notes"] for t in turns)
+    assert end["lenient_replies"] == len(turns)
 
 
 @pytest.mark.parametrize("answer,expected", [

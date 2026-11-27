@@ -33,7 +33,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from runner import plan
-from runner.config import PHASES, REPO_ROOT, Config, ConfigError, load_config, read_text_file
+from runner.config import PHASES, REPO_ROOT, Config, ConfigError, load_config, phase_dir, read_text_file
 from runner.play import play_episode
 from runner.plan import RunnerError
 from runner.run import Heartbeat
@@ -75,7 +75,8 @@ def check_out_dir(out: Path, cfg: Config) -> Path:
     if _inside(out, REPO_ROOT):
         raise RunnerError(f"the dry run's output folder must be outside the repository, got {out}")
     for phase in PHASES:
-        if _inside(out, (cfg.runs_dir / phase).resolve()):
+        attempts = cfg.phases[phase].attempt if phase in cfg.phases else 1
+        if any(_inside(out, phase_dir(cfg.runs_dir, phase, a).resolve()) for a in range(1, attempts + 1)):
             raise RunnerError(f"the dry run's output folder may not be a real phase's folder ({phase}), got {out}")
     return out
 

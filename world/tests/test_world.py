@@ -378,23 +378,28 @@ def test_validator():
     for bad in ["nope", "[]", '{"move":"up","look":1,"diary":"","answer":""}',
                 '{"move":"eat","look":9,"diary":"","answer":""}',
                 '{"move":"eat","look":true,"diary":"","answer":""}', '{"move":"eat","look":1}',
-                '{"move":"eat","look":1,"diary":"","answer":"","x":1}',
-                json.dumps({"move": "eat", "look": 1, "diary": "x" * 201, "answer": ""})]:
+                '{"move":"eat","look":1,"diary":5,"answer":""}']:
         assert validate(bad)[0] is None, bad
+    # Lenient since the first API pilot: extra keys are ignored, an over-long diary is cut to the cap.
+    assert validate('{"move":"eat","look":1,"diary":"","answer":"","x":1}')[0] is not None
+    long = validate(json.dumps({"move": "eat", "look": 1, "diary": "x" * 201, "answer": ""}))[0]
+    assert long is not None and len(long["diary"]) == DIARY_MAX
 
 
 def test_validator_answer_field():
     def reply(**over):
         return json.dumps({"move": "eat", "look": 0, "diary": "hi", "answer": "", **over})
 
-    assert REPLY_SCHEMA["required"] == ["move", "look", "diary", "answer"]
+    assert REPLY_SCHEMA["required"] == ["move", "look", "diary", "answer"]  # what the prompt asks for
     assert REPLY_SCHEMA["properties"]["answer"] == {"type": "string", "maxLength": DIARY_MAX} == {
         "type": "string", "maxLength": REPLY_SCHEMA["properties"]["diary"]["maxLength"]}
     assert validate(reply(answer=""))[0]["answer"] == ""                   # empty is valid on any turn
     assert validate(reply(answer="Yes, the diary changed"))[0]["answer"] == "Yes, the diary changed"
     assert validate(reply(answer="x" * 200))[0] is not None                # at the cap
-    for bad in (reply(answer="x" * 201), reply(answer=None), reply(answer=1), reply(answer=["yes"]),
-                json.dumps({"move": "eat", "look": 0, "diary": "hi"})):      # a three-field reply is no longer valid
+    assert validate(reply(answer="x" * 201))[0]["answer"] == "x" * DIARY_MAX  # cut to the cap, noted
+    assert validate(reply(answer=None))[0]["answer"] == ""                 # null reads as empty
+    assert validate(json.dumps({"move": "eat", "look": 0, "diary": "hi"}))[0]["answer"] == ""  # left out reads as empty
+    for bad in (reply(answer=1), reply(answer=["yes"])):
         action, err = validate(bad)
         assert action is None and "answer" in err, bad
 

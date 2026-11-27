@@ -34,7 +34,7 @@ class FakeClock:
 
 
 def make_config(tmp: Path, *, caps=None, priors=None, pairs=None, seed_lists=None, shuffle_seed=7, price_file=PRICE_FILE,
-                max_consecutive_exclusions=3, blinded_phases=("confirmatory",), skip=()) -> Config:
+                max_consecutive_exclusions=3, blinded_phases=("confirmatory",), skip=(), attempts=None) -> Config:
     """A config whose runs_dir, prompts and seed files live under tmp. skip names files not to create."""
     (tmp / "prompts").mkdir(exist_ok=True)
     files = {"stakes": "TEST system prompt stakes", "no_stakes": "TEST system prompt no_stakes", "checkin_question": QUESTION}
@@ -56,6 +56,8 @@ def make_config(tmp: Path, *, caps=None, priors=None, pairs=None, seed_lists=Non
                          "pairs_per_tier": {t: (pairs or {}).get(t, 1 if t in default_tiers else 0) for t in ALL_TIERS}}
         if phase == "tiers":
             phases[phase]["order"] = "alternate"
+        if phase in (attempts or {}):
+            phases[phase]["attempt"] = attempts[phase]
     raw = {
         "runs_dir": str(tmp / "runs"),
         "price_file": str(price_file),

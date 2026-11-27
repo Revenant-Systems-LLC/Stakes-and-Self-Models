@@ -44,7 +44,7 @@ from tqdm import tqdm
 
 from runner import gate, plan
 from runner.claude_critter import ClaudeCritter
-from runner.config import ALL_TIERS, PHASES, REAL_PHASES, Config, ConfigError, load_config, read_text_file
+from runner.config import ALL_TIERS, PHASES, REAL_PHASES, Config, ConfigError, load_config, phase_dir, read_text_file
 from runner.fake_client import FakeClient, random_valid_script
 from runner.ledger import Ledger, LedgerError, PriceError, PriceTable
 from runner.play import play_episode
@@ -248,8 +248,11 @@ class Runner:
         self.checkin = read_text_file(cfg.prompt_files["checkin_question"], "check-in question")
         self.say("[4/5] reading the spend ledger and episode manifest")
         self.ledger = Ledger(cfg.runs_dir, phase, cfg.caps_usd[phase], self.prices)
-        self.phase_dir = cfg.runs_dir / phase
+        self.attempt = ph.attempt
+        self.phase_dir = phase_dir(cfg.runs_dir, phase, ph.attempt)
         self.manifest = Manifest(self.phase_dir / "manifest.jsonl")
+        if ph.attempt > 1:
+            self._void_earlier_attempts()
         blinded = phase in cfg.blinded_phases
         self.labels = {c: blinding.condition_code(c, blinded=blinded, path=self.key_path) for c in CONDITIONS}
         self.blinded = blinded
@@ -262,6 +265,28 @@ class Runner:
         if self.limit_pairs is not None:
             self.slots = self.slots[: self.limit_pairs]
         self.say(f"[5/5] {len(self.slots)} pairs planned ({counts_sel}), spend so far ${self.ledger.spend:.4f} of ${self.ledger.cap:.2f}")
+
+    def _void_earlier_attempts(self):
+        """Every seed an earlier, voided attempt of this phase touched (in its manifest or as a log file) is excluded
+        here for every tier, so this attempt starts on fresh seeds and the tiers stay on matching seeds. The earlier
+        attempts' folders are only read."""
+        used: dict[int, int] = {}
+        for a in range(1, self.attempt):
+            d = phase_dir(self.cfg.runs_dir, self.phase, a)
+            for r in Manifest(d / "manifest.jsonl").records if (d / "manifest.jsonl").exists() else []:
+                if isinstance(r.get("seed"), int):
+                    used.setdefault(r["seed"], a)
+            for f in sorted(d.glob("logs/*/*.jsonl.gz")):
+                head = f.name.split("-", 1)[0]
+                if head.isdigit():
+                    used.setdefault(int(head), a)
+        for seed in sorted(used, key=lambda s: self.seeds.index(s) if s in self.seeds else len(self.seeds)):
+            for tier in ALL_TIERS:
+                if seed not in self.manifest.excluded_seeds(tier):
+                    self.manifest.append({"type": "pair_excluded", "tier": tier, "seed": seed,
+                                          "reason": f"voided: used in {self.phase} attempt {used[seed]}"})
+        if used:
+            self.say(f"  {len(used)} seeds used by earlier {self.phase} attempts are skipped; this is attempt {self.attempt}")
 
     def _adopt_orphans(self):
         """A log with no manifest line is an episode a hard stop cut off. It counts as a crash: its pair is excluded."""

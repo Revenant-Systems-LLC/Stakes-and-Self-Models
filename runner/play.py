@@ -61,7 +61,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
     _, info = env.reset(seed=seed, max_turns=max_turns)
     status, stop = "done", {}
     n_invalid = n_refusals = n_calls = tokens_in = tokens_out = 0
-    n_empty_checkin = n_stray = 0
+    n_empty_checkin = n_stray = n_lenient = 0
     cost = 0.0
     last, terminated = None, False
     bar = tqdm(total=env.max_turns, desc=desc, unit="turn", leave=False, dynamic_ncols=True, mininterval=1.0,
@@ -103,6 +103,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                     break
                 calls = take_calls()
                 n_invalid += not d.valid
+                n_lenient += bool(d.notes)
                 n_calls += len(calls)
                 turn_in = sum(c["prompt_tokens"] for c in calls)
                 turn_out = sum(c["output_tokens"] for c in calls)
@@ -133,6 +134,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                     "raw_reply": d.raw_replies,
                     "reply_valid": d.valid,
                     "reply_errors": d.errors,
+                    "reply_notes": d.notes,
                     "checkin": info["checkin"],
                     "checkin_window": info["checkin_window"],
                     "checkin_question": question,
@@ -160,6 +162,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                 "food_eaten": env.food_eaten,
                 "thorns_hit": env.thorns_hit,
                 "invalid_turns": n_invalid,
+                "lenient_replies": n_lenient,
                 "empty_checkin_answers": n_empty_checkin,
                 "stray_answers": n_stray,
                 "refusals": n_refusals,

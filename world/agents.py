@@ -1,15 +1,24 @@
 """The agent slot. Nothing model-specific lives here.
 
 An agent takes the observation (dict and text) and returns its raw reply
-string. The runner validates the reply against REPLY_SCHEMA; a bad reply gets
-one retry with the same observation, and if that is also bad the turn counts
-as stay.
+string. The runner parses the reply (parse_reply); a bad reply gets one retry
+with the same observation plus one line naming what was wrong, and if that is
+also bad the turn counts as stay.
 
 The reply has four fields: move, look, diary and answer. The answer field holds
 the critter's reply to the game check question on a check-in turn and is empty
-otherwise. It is a required string, so an empty one is valid on any turn. It is
-never written to the diary and the world never reads it, so it cannot reach the
-critter on a later turn.
+otherwise. It is never written to the diary and the world never reads it, so it
+cannot reach the critter on a later turn.
+
+What counts as bad (changed after the first API pilot, Nov 27 2026). Real models
+wrapped good JSON in prose or stray markup, left out an empty answer, and wrote
+diary lines a little over 200 characters, and each of those turned a sound move
+into stay. Now the parser takes the last JSON object in the reply that has a
+move, treats a missing or null answer as empty, truncates an over-long diary or
+answer to 200 characters, and ignores extra keys. Each of these is logged as a
+note on the turn, so nothing is silent. A reply is still bad when no JSON object
+can be found, or when move or look is missing or out of range, or when diary or
+answer is not a string.
 """
 
 from __future__ import annotations
@@ -47,30 +56,79 @@ class Agent(Protocol):
     def reply(self, observation: dict, text: str) -> str: ...
 
 
-def validate(raw: str) -> tuple[dict | None, str | None]:
-    """Return (action, None) if raw is a valid reply, else (None, reason)."""
+def _json_objects(raw: str) -> list:
+    """Every JSON object that decodes cleanly starting at some "{" in raw, in order."""
+    dec, found, i = json.JSONDecoder(), [], raw.find("{")
+    while i != -1:
+        try:
+            obj, end = dec.raw_decode(raw, i)
+        except ValueError:
+            i = raw.find("{", i + 1)
+            continue
+        if isinstance(obj, dict):
+            found.append(obj)
+        i = raw.find("{", end)
+    return found
+
+
+def parse_reply(raw) -> tuple[dict | None, str | None, list[str]]:
+    """Return (action, None, notes) for a usable reply, else (None, reason, notes).
+
+    notes lists every leniency applied: prose_around_json, answer_missing,
+    diary_truncated, answer_truncated, extra_keys."""
+    notes: list[str] = []
+    if not isinstance(raw, str):
+        return None, "not JSON: reply is not text", notes
     try:
-        obj = json.loads(raw)
-    except (TypeError, ValueError) as e:
-        return None, f"not JSON: {e}"
-    if not isinstance(obj, dict):
-        return None, "not a JSON object"
+        whole = json.loads(raw)
+    except ValueError as e:
+        whole, first_err = None, f"not JSON: {e}"
+    else:
+        first_err = None if isinstance(whole, dict) else "not a JSON object"
+    if isinstance(whole, dict):
+        obj = whole
+    else:
+        cands = [o for o in _json_objects(raw) if "move" in o]
+        if not cands:
+            return None, first_err or "not a JSON object", notes
+        obj = cands[-1]
+        notes.append("prose_around_json")
     extra = set(obj) - set(REPLY_SCHEMA["properties"])
     if extra:
-        return None, f"unexpected keys: {sorted(extra)}"
-    missing = [k for k in REPLY_SCHEMA["required"] if k not in obj]
+        notes.append("extra_keys")
+    missing = [k for k in ("move", "look", "diary") if k not in obj]
     if missing:
-        return None, f"missing keys: {missing}"
-    move, look, diary, answer = obj["move"], obj["look"], obj["diary"], obj["answer"]
+        return None, f"missing keys: {missing}", notes
+    move, look, diary = obj["move"], obj["look"], obj["diary"]
+    answer = obj.get("answer")
+    if answer is None:
+        answer = ""
+        notes.append("answer_missing")
     if not isinstance(move, str) or move not in MOVES:
-        return None, f"bad move: {move!r}"
+        return None, f"bad move: {move!r}", notes
     if isinstance(look, bool) or not isinstance(look, int) or not 0 <= look <= 8:
-        return None, f"bad look: {look!r}"
-    if not isinstance(diary, str) or len(diary) > DIARY_MAX:
-        return None, "bad diary: must be a string of at most %d characters" % DIARY_MAX
-    if not isinstance(answer, str) or len(answer) > DIARY_MAX:
-        return None, "bad answer: must be a string of at most %d characters" % DIARY_MAX
-    return {"move": move, "look": look, "diary": diary, "answer": answer}, None
+        return None, f"bad look: {look!r}", notes
+    if not isinstance(diary, str):
+        return None, "bad diary: must be a string", notes
+    if not isinstance(answer, str):
+        return None, "bad answer: must be a string", notes
+    if len(diary) > DIARY_MAX:
+        diary = diary[:DIARY_MAX]
+        notes.append("diary_truncated")
+    if len(answer) > DIARY_MAX:
+        answer = answer[:DIARY_MAX]
+        notes.append("answer_truncated")
+    return {"move": move, "look": look, "diary": diary, "answer": answer}, None, notes
+
+
+def validate(raw: str) -> tuple[dict | None, str | None]:
+    """Return (action, None) if raw is a usable reply, else (None, reason). See parse_reply."""
+    action, err, _ = parse_reply(raw)
+    return action, err
+
+
+RETRY_NOTE = ("Your last reply could not be used ({error}). Reply with one JSON object and nothing else, "
+              'like {{"move": "north", "look": 1, "diary": "your line", "answer": ""}}.')
 
 
 @dataclass
@@ -79,17 +137,19 @@ class Decision:
     raw_replies: list[str]
     errors: list[str]
     valid: bool
+    notes: list[str] = field(default_factory=list)
 
 
 def decide(agent: Agent, observation: dict, text: str, fallback_look: int) -> Decision:
-    """Ask the agent, retry once on a bad reply, then fall back to stay."""
+    """Ask the agent, retry once on a bad reply (naming the problem), then fall back to stay."""
     raws, errors = [], []
-    for _ in range(2):
-        raw = agent.reply(observation, text)
+    for attempt in range(2):
+        ask = text if attempt == 0 else f"{text}\n\n{RETRY_NOTE.format(error=errors[-1])}"
+        raw = agent.reply(observation, ask)
         raws.append(raw if isinstance(raw, str) else repr(raw))
-        action, err = validate(raw)
+        action, err, notes = parse_reply(raw)
         if action is not None:
-            return Decision(action, raws, errors, True)
+            return Decision(action, raws, errors, True, notes)
         errors.append(err)
     return Decision({"move": "stay", "look": fallback_look, "diary": "", "answer": ""}, raws, errors, False)
 

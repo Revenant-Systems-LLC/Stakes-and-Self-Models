@@ -39,6 +39,7 @@ class PhaseConfig:
     seed_file: Path
     pairs_per_tier: dict   # every tier in ALL_TIERS; tiers the config leaves out plan 0 pairs
     order: str = "shuffled"  # "shuffled": fixed-seed shuffle across tiers. "alternate": tier by tier, k by k, no randomness
+    attempt: int = 1         # 2 or more: an earlier attempt of this phase was voided (see phase_dir)
 
 
 @dataclass(frozen=True)
@@ -141,7 +142,12 @@ def load_config(path: str | Path | None = None) -> Config:
         order = ph.get("order", "shuffled")
         if order not in ORDERS:
             raise ConfigError(f"phases.{name}.order must be one of {ORDERS}, got {order!r}")
-        phases[name] = PhaseConfig(_path(_need(ph, "seed_file", f"phases.{name}")), counts, order)
+        attempt = ph.get("attempt", 1)
+        if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
+            raise ConfigError(f"phases.{name}.attempt must be a whole number >= 1, got {attempt!r}")
+        if attempt > 1 and name not in ("dev", "pilot"):
+            raise ConfigError(f"phases.{name}.attempt: only the dev and pilot phases may be voided and rerun")
+        phases[name] = PhaseConfig(_path(_need(ph, "seed_file", f"phases.{name}")), counts, order, attempt)
     blinded = tuple(raw.get("blinded_phases", ["confirmatory"]))
     if not set(blinded) <= set(PHASES):
         raise ConfigError("blinded_phases has an unknown phase")
@@ -164,6 +170,13 @@ def load_config(path: str | Path | None = None) -> Config:
         phases=phases,
         source=path,
     )
+
+
+def phase_dir(runs_dir: Path, phase: str, attempt: int = 1) -> Path:
+    """Where a phase's logs and manifest live. Attempt 1 is runs_dir/<phase>; a later attempt is
+    runs_dir/<phase>-attempt<N>, so a voided attempt's files are never touched. The ledger stays per phase,
+    so every attempt counts against the same cap."""
+    return runs_dir / (phase if attempt == 1 else f"{phase}-attempt{attempt}")
 
 
 def read_text_file(path: Path, what: str) -> str:
