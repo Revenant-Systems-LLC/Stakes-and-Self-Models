@@ -59,4 +59,5 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 010 commit arm2/ | done, arm2/ committed (842151b) |
 | 010a clear stale 006 stub | done, stub deleted |
 | 011 reason-first replies, shorter diary | done: nothing forages; the move ignores the food in every variant; no change recommended |
-| 012 can the model read the map | dropped: David is dropping Qwen and the local arms (Nov 27); amendment drafted, not yet approved |
+| 012 can the model read the map | dropped with the local arms (preregistration amendment 1, Nov 26) |
+| 012 which Mythos can the key call | queued runner job; David types 012 to start it; under $0.05 |
