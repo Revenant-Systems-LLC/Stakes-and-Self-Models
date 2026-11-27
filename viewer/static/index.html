@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clawlings</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="desk">
+  <div class="win">
+    <div class="titlebar">
+      <span class="ttl-ico"></span>
+      <span class="ttl">CLAWLINGS.EXE &middot; tide pool observer</span>
+      <span class="ttl-btns"><b>_</b><b>&#9633;</b><b>&times;</b></span>
+    </div>
+    <div class="menubar">
+      <label class="pick">Critter <select id="ep"><option>loading...</option></select></label>
+      <label class="chk"><input type="checkbox" id="follow"> Follow live</label>
+      <span id="live" class="live hidden">&#9679; LIVE</span>
+      <span id="spend" class="spend"></span>
+    </div>
+    <div class="main">
+      <div class="crt">
+        <div class="screen">
+          <canvas id="world"></canvas>
+          <div id="overlay" class="overlay"></div>
+          <div class="scan"></div>
+          <div id="banner" class="banner hidden"></div>
+        </div>
+        <div class="crt-foot">
+          <span id="nameplate" class="nameplate">no critter yet</span>
+          <span class="knobs">
+            <label class="chk"><input type="checkbox" id="fog"> What it sees</label>
+            <label class="chk"><input type="checkbox" id="sound"> Sound</label>
+          </span>
+        </div>
+      </div>
+      <div class="side">
+        <section class="panel" id="vitals"><h3>CRITTER</h3><div id="vitals-body"></div></section>
+        <section class="panel grow"><h3>DIARY <small>what it remembers</small></h3><ol id="diary" class="diary"></ol></section>
+        <section class="panel grow"><h3>WHAT HAPPENED</h3><ol id="feed" class="feed"></ol></section>
+      </div>
+    </div>
+    <div class="transport">
+      <button id="b-first" title="First turn">&#9198;</button>
+      <button id="b-back" title="Step back (left arrow)">&#9664;</button>
+      <button id="b-play" class="big" title="Play or pause (space)">&#9654;</button>
+      <button id="b-fwd" title="Step forward (right arrow)">&#9654;&#9654;</button>
+      <button id="b-last" title="Latest turn">&#9197;</button>
+      <select id="speed" title="Speed">
+        <option value="0.5">0.5x</option><option value="1" selected>1x</option>
+        <option value="2">2x</option><option value="4">4x</option>
+      </select>
+      <div class="scrubwrap">
+        <div id="ticks" class="ticks"></div>
+        <input id="scrub" type="range" min="0" max="0" value="0">
+      </div>
+      <span id="turnlbl" class="turnlbl">turn -</span>
+    </div>
+    <div class="statusbar"><span id="status">starting...</span><span class="legend">
+      <i class="lg chosen"></i>looked here <i class="lg shown"></i>game showed this <i class="lg edit"></i>diary edit <i class="lg check"></i>check-in</span></div>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
