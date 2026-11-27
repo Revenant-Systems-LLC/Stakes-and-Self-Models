@@ -1,5 +1,8 @@
 """One gzipped JSON Lines file per episode.
 
+Each line is flushed as it is written, so a reader can follow a running
+episode (viewer/server.py).
+
 Line 1 is the header. Then one line per turn. A final "end" line records how
 the episode finished, so a crashed run (no end line) is easy to spot.
 """
@@ -51,6 +54,9 @@ class EpisodeLog:
 
     def _write(self, obj: dict):
         self._f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        # Sync-flush after every line so the viewer's live mode can read each
+        # turn while the episode is still running. The file stays valid gzip.
+        self._f.flush()
 
     def turn(self, record: dict):
         missing = [k for k in TURN_FIELDS if k not in record]
