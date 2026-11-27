@@ -64,4 +64,5 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 013 Mythos check after CVP | done: claude-mythos-5-2 and claude-mythos-5-1 callable |
 | 014 runner ready for pilot and tiers | done: seed lists, tiers phase, 401 stop, resume, heartbeat, expiry guard; 152 tests |
 | 015 check-in answer field | done: answer field, kept out of the diary, 403/404 stop added; 316 tests |
-| 016 scripted dry run | queued, auto-runs (no API, $5): scripted agents through the real harness, log checker for the pilot |
+| 016 scripted dry run | held in ops/held/ until the watcher loads Nomos Logos for every job |
+| 017 find Nomos Logos, audit writes | queued, auto-runs (no API, $3, read-only): where the harness lives and how to load it; every out-of-bounds write so far |
