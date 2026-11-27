@@ -48,7 +48,8 @@ async function refreshList() {
   }
   if (S.follow) {
     const live = S.episodes.find((e) => e.running);
-    if (live && live.path !== S.path) await load(live.path, { toEnd: true });
+    // resume after loading: playback stops at the end of a finished episode, and would stay stopped on the new one
+    if (live && live.path !== S.path) { await load(live.path, { toEnd: true }); setPlaying(true); }
   }
   if (!S.path && S.episodes.length) {
     const fromHash = decodeURIComponent((location.hash.match(/path=([^&]+)/) || [])[1] || "");
@@ -84,11 +85,25 @@ function apply(ep, where) {
   renderTicks();
   $("scrub").max = Math.max(0, S.frames.length - 1);
   $("live").classList.toggle("hidden", !ep.running);
-  if (where === "start") show(0, { quiet: true });
+  if (!S.frames.length) blank();
+  else if (where === "start") show(0, { quiet: true });
   else if (where === "end") show(Math.max(0, S.frames.length - 1), { quiet: true });
   else if (atEnd && !S.playing) show(S.idx, { quiet: true });
   else if (S.idx > S.frames.length - 1) show(S.frames.length - 1, { quiet: true });
-  if (!ep.ready) status("waiting for the episode's first line...");
+  if (!S.frames.length) status(`${ep.path} · waiting for the episode's first ${ep.ready ? "turn" : "line"}...`);
+}
+
+// An episode with no turns yet: clear the last episode off the screen so nothing of it
+// shows under this episode's name. idx -1 lets playback pick up turn 1 when it lands.
+function blank() {
+  S.idx = -1;
+  renderer.clear();
+  $("scrub").value = 0;
+  $("turnlbl").textContent = "turn -";
+  $("banner").classList.add("hidden");
+  vitals({});
+  $("diary").innerHTML = S.ep.blinded ? `<li class="note">Hidden in blinded runs.</li>` : `<li class="note">(empty so far)</li>`;
+  $("feed").innerHTML = `<li class="note">Nothing yet. It's just waking up.</li>`;
 }
 
 function renderTicks() {

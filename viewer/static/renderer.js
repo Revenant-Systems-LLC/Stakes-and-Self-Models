@@ -48,6 +48,7 @@ export class ClawlingRenderer {
 
   setFog(on) { this.fog = !!on; }
   setSpeed(s) { this.speed = Math.max(0.25, s || 1); }
+  clear() { this.frame = null; this.prev = null; this.particles = []; this._setBubble(null); }
 
   setFrame(frame) {
     const now = performance.now();

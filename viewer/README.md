@@ -87,6 +87,7 @@ const r = new ClawlingRenderer(canvas, overlayDiv);  // overlay is optional, it 
 r.setFrame(frame);   // animate from the last frame to this one
 r.setFog(true);      // show only what the critter can see
 r.setSpeed(2);       // animation speed multiplier
+r.clear();           // drop the frame and bubble, back to an empty pool
 ```
 
 A frame:

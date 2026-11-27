@@ -88,5 +88,6 @@ export function describe(frame, ep) {
   }
   if (frame.terminal) out.push({ k: "end", t: blinded ? "episode over" : (ep.end && ep.end.fainted ? "episode over: it fainted" : "episode over: made it to the end") });
   if (rec && rec.reply_valid === false) out.push({ k: "ouch", t: "bad reply, counted as stay" });
+  else if (rec && rec.move) out.push({ k: "move", t: STEP[rec.move] ? `walked ${rec.move}` : rec.move === "eat" ? "tried to eat" : "stayed put" });
   return out;
 }

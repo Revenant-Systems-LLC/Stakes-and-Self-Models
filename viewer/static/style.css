@@ -101,7 +101,7 @@ button:active { box-shadow: inset 2px 2px 0 var(--win2); }
 .diary li.new::before { content: "writing now"; color: #2a8aa0; font-size: 11px; display: block; }
 .feed li { padding: 2px 4px; display: flex; gap: 6px; }
 .feed li b { color: #8a7a9e; min-width: 34px; }
-.feed li.swap { color: #a65400; } .feed li.edit { color: #b8336f; } .feed li.check { color: #2f7a40; } .feed li.ouch { color: #c0283f; } .feed li.end { color: var(--title1); }
+.feed li.swap { color: #a65400; } .feed li.edit { color: #b8336f; } .feed li.check { color: #2f7a40; } .feed li.ouch { color: #c0283f; } .feed li.end { color: var(--title1); } .feed li.move { color: #7a6a90; }
 
 .transport { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 2px solid var(--win2); flex-wrap: wrap; }
 .transport button { min-width: 36px; }
