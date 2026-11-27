@@ -9,3 +9,7 @@ Right now the repo holds PREREGISTRATION.md, with the hypotheses, design, contro
 The claim is about how accurate a self-model is. It isn't a claim that any model is conscious or feels anything.
 
 David Fisher, Revenant Systems LLC
+
+## Watching the critters
+
+The viewer folder has a small local web page that replays episode logs as a pixel tide pool and can follow an episode live while it runs. It follows the preregistration's blinding rules for confirmatory runs. To start it on Windows, run `M:\Projects\Lobster-Lab\.venv\Scripts\python.exe -m viewer.server` from the repo folder and open http://127.0.0.1:8765. viewer/README.md has the details, the demo logs, and the frame format the renderer draws from.
