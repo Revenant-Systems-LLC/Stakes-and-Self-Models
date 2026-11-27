@@ -64,7 +64,7 @@ python -m viewer.make_demo --live
 python -m pytest viewer/tests
 ```
 
-The tests play short scripted episodes and check the map replay, the blinded stripping, reading a log mid-write, and that the server refuses paths outside the runs folder.
+The tests play short scripted episodes and check the map replay, the blinded stripping, reading a log mid-write, and that the server refuses paths outside the runs folder. They also check the data contract, the sprite manifest, and (when node is installed) the animation plans end to end.
 
 ## How it's built
 
@@ -79,6 +79,12 @@ The pieces are kept apart so the drawing code never touches logs or blinding.
 | `static/sprites.js` | Pixel art for the critter, tiles and emotes |
 | `static/sfx.js` | Small synthesized sounds |
 | `static/app.js` | Page controls, playback and polling |
+| `static/anim.js` | Animation plans: which clip plays when, from frames. Not wired in yet |
+| `static/art/manifest.json` | Sprite manifest: the slot the original art drops into |
+| `manifest.py` | Checks a sprite manifest (`python -m viewer.manifest`) |
+| `contract.py` | The contract an episode from the server must meet, blinding included |
+
+The animation pass, its clean-room rules and what's left for the visual pass are in [docs/animation.md](docs/animation.md).
 
 ### Frame format
 

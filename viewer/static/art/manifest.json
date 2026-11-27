@@ -1,0 +1,123 @@
+{
+  "format": "clawlings-sprites",
+  "version": 1,
+  "source": "procedural",
+  "note": "Placeholder. Timing of the current hand-coded pixel art in static/sprites.js. Swap source to 'sheets' and add sheets when the original art is ready. Format: viewer/docs/animation.md.",
+  "cell": [
+    20,
+    20
+  ],
+  "anchor": [
+    3,
+    5
+  ],
+  "sheets": {},
+  "clips": {
+    "idle": {
+      "frames": 2,
+      "ms": 260,
+      "loop": true
+    },
+    "idle_happy": {
+      "frames": 2,
+      "ms": 260,
+      "loop": true
+    },
+    "idle_worried": {
+      "frames": 2,
+      "ms": 260,
+      "loop": true
+    },
+    "idle_hurt": {
+      "frames": 2,
+      "ms": 260,
+      "loop": true
+    },
+    "walk_north": {
+      "frames": 2,
+      "ms": 170,
+      "loop": true
+    },
+    "walk_south": {
+      "frames": 2,
+      "ms": 170,
+      "loop": true
+    },
+    "walk_east": {
+      "frames": 2,
+      "ms": 170,
+      "loop": true
+    },
+    "walk_west": {
+      "mirror": "walk_east",
+      "note": "the current art faces the viewer, so the mirror changes nothing yet"
+    },
+    "eat": {
+      "frames": 2,
+      "ms": 280,
+      "loop": false
+    },
+    "ouch": {
+      "frames": 2,
+      "ms": 180,
+      "loop": false
+    },
+    "think": {
+      "frames": 2,
+      "ms": 300,
+      "loop": false
+    },
+    "faint": {
+      "frames": 2,
+      "ms": 350,
+      "loop": false
+    },
+    "sleep": {
+      "frames": 2,
+      "ms": 260,
+      "loop": true
+    }
+  },
+  "emotes": {
+    "heart": {
+      "frames": 2,
+      "ms": 220,
+      "loop": true
+    },
+    "alert": {
+      "frames": 2,
+      "ms": 220,
+      "loop": true
+    },
+    "swap": {
+      "frames": 2,
+      "ms": 220,
+      "loop": true
+    },
+    "question": {
+      "frames": 2,
+      "ms": 220,
+      "loop": true
+    },
+    "pencil": {
+      "frames": 2,
+      "ms": 220,
+      "loop": true
+    },
+    "zzz": {
+      "frames": 2,
+      "ms": 220,
+      "loop": true
+    },
+    "sweat": {
+      "frames": 2,
+      "ms": 220,
+      "loop": true
+    },
+    "dots": {
+      "frames": 4,
+      "ms": 300,
+      "loop": true
+    }
+  }
+}
