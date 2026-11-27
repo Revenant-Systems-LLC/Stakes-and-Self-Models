@@ -48,6 +48,7 @@ from runner.config import ALL_TIERS, PHASES, REAL_PHASES, Config, ConfigError, l
 from runner.fake_client import FakeClient, random_valid_script
 from runner.ledger import Ledger, LedgerError, PriceError, PriceTable
 from runner.play import play_episode
+from world.env import WorldConfig
 from runner.plan import RunnerError
 from world import blinding
 from world.env import CONDITIONS
@@ -251,6 +252,11 @@ class Runner:
         self.attempt = ph.attempt
         self.phase_dir = phase_dir(cfg.runs_dir, phase, ph.attempt)
         self.manifest = Manifest(self.phase_dir / "manifest.jsonl")
+        mixed = sorted({r["food_density"] for r in self.manifest.records
+                        if r.get("type") == "episode" and r.get("food_density") not in (None, cfg.food_density)})
+        if mixed:
+            raise RunnerError(f"this {phase} run already has episodes at food density {mixed}, but the config says "
+                              f"{cfg.food_density}; one phase plays one density")
         if ph.attempt > 1:
             self._void_earlier_attempts()
         blinded = phase in cfg.blinded_phases
@@ -267,7 +273,8 @@ class Runner:
         self.say(f"[5/5] {len(self.slots)} pairs planned ({counts_sel}), spend so far ${self.ledger.spend:.4f} of ${self.ledger.cap:.2f}")
 
     def _void_earlier_attempts(self):
-        """Every seed an earlier, voided attempt of this phase touched (in its manifest or as a log file) is excluded
+        """Every seed an earlier attempt of this phase touched (voided, or finished and kept, such as a food tuning
+        round) (in its manifest or as a log file) is excluded
         here for every tier, so this attempt starts on fresh seeds and the tiers stay on matching seeds. The earlier
         attempts' folders are only read."""
         used: dict[int, int] = {}
@@ -284,7 +291,7 @@ class Runner:
             for tier in ALL_TIERS:
                 if seed not in self.manifest.excluded_seeds(tier):
                     self.manifest.append({"type": "pair_excluded", "tier": tier, "seed": seed,
-                                          "reason": f"voided: used in {self.phase} attempt {used[seed]}"})
+                                          "reason": f"earlier attempt: used in {self.phase} attempt {used[seed]}"})
         if used:
             self.say(f"  {len(used)} seeds used by earlier {self.phase} attempts are skipped; this is attempt {self.attempt}")
 
@@ -437,8 +444,10 @@ class Runner:
             result = play_episode(
                 critter, condition=condition, seed=seed, log_path=log_path, model=model, condition_code=label,
                 checkin_question=self.checkin, max_turns=max_turns, version=self.version,
+                world_config=WorldConfig(food_density=cfg.food_density),
                 header_extra={"phase": self.phase, "tier": tier, "episode_id": episode_id, "attempt": attempt,
-                              "effort": cfg.effort, "max_tokens": cfg.max_tokens, "price_file": cfg.price_file.name},
+                              "effort": cfg.effort, "max_tokens": cfg.max_tokens, "price_file": cfg.price_file.name,
+                              "food_density": cfg.food_density},
                 progress=self.progress, desc=f"  {tier} {seed} {label}",
                 status_suffix=lambda: f"phase ${self.ledger.spend:.2f}/${self.ledger.cap:.0f}", on_turn=self._on_turn)
         except (LedgerError, PriceError, RunnerError):
@@ -453,6 +462,7 @@ class Runner:
             "type": "episode", "phase": self.phase, "tier": tier, "model": model, "seed": seed, "condition_code": label,
             "episode_id": episode_id, "status": status, "turns": summary["turns"], "fainted": summary.get("fainted"),
             "cost_usd": summary["cost_usd"], "log_path": str(log_path), "error": error or summary.get("error"),
+            "food_density": cfg.food_density,
         })
         if status == "done":
             self.say(f"  {tier} seed {seed} {label}: done, {summary['turns']} turns, ${summary['cost_usd']:.4f}")

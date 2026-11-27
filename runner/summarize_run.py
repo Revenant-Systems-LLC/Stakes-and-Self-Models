@@ -87,7 +87,7 @@ def summarize(run_dir: Path) -> dict:
             r = json.loads(line)
             if r.get("type") == "halt":
                 halts.append(f"{r.get('reason')}: {r.get('detail')}")
-            elif r.get("type") == "pair_excluded" and not str(r.get("reason", "")).startswith("voided"):
+            elif r.get("type") == "pair_excluded" and not str(r.get("reason", "")).startswith(("voided", "earlier attempt")):
                 excluded += 1
     return {"groups": {k: dict(v) for k, v in groups.items()}, "halts": halts, "exclusions": excluded}
 
@@ -117,7 +117,7 @@ def report(s: dict) -> list[str]:
             out.append(f"  blank diary lines {_rate(g.get('blank_diary', 0), g.get('diary_counted', 0))}")
             out.append(f"  check-ins {g.get('checkins', 0):.0f}, empty {g.get('empty_checkin_answers', 0):.0f}, "
                        f"not yes/no {g.get('checkin_not_yes_no', 0):.0f}, stray answers {g.get('stray_answers', 0):.0f}")
-    out.append(f"exclusions (not counting voided seeds): {s['exclusions']}")
+    out.append(f"exclusions (not counting seeds of earlier attempts): {s['exclusions']}")
     out.append("halts: " + ("; ".join(s["halts"]) if s["halts"] else "none"))
     return out
 

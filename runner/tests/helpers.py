@@ -34,7 +34,8 @@ class FakeClock:
 
 
 def make_config(tmp: Path, *, caps=None, priors=None, pairs=None, seed_lists=None, shuffle_seed=7, price_file=PRICE_FILE,
-                max_consecutive_exclusions=3, blinded_phases=("confirmatory",), skip=(), attempts=None) -> Config:
+                max_consecutive_exclusions=3, blinded_phases=("confirmatory",), skip=(), attempts=None,
+                world=None) -> Config:
     """A config whose runs_dir, prompts and seed files live under tmp. skip names files not to create."""
     (tmp / "prompts").mkdir(exist_ok=True)
     files = {"stakes": "TEST system prompt stakes", "no_stakes": "TEST system prompt no_stakes", "checkin_question": QUESTION}
@@ -73,6 +74,8 @@ def make_config(tmp: Path, *, caps=None, priors=None, pairs=None, seed_lists=Non
         "prompts": {k: str(tmp / "prompts" / f"{k}.txt") for k in files},
         "phases": phases,
     }
+    if world is not None:
+        raw["world"] = world
     path = tmp / "config.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
     return load_config(path)

@@ -27,7 +27,9 @@ DEV_SEEDS = range(990000, 990200)
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
 _TOP_KEYS = {"runs_dir", "price_file", "models", "effort", "max_tokens", "caps_usd", "priors_usd", "retry",
-             "max_consecutive_exclusions", "shuffle_seed", "blinded_phases", "prompts", "phases"}
+             "max_consecutive_exclusions", "shuffle_seed", "blinded_phases", "prompts", "phases", "world"}
+# The one world setting a config may change: food density, which the preregistration tunes on pilot seeds.
+DEFAULT_FOOD_DENSITY = 0.10
 
 
 class ConfigError(ValueError):
@@ -39,7 +41,7 @@ class PhaseConfig:
     seed_file: Path
     pairs_per_tier: dict   # every tier in ALL_TIERS; tiers the config leaves out plan 0 pairs
     order: str = "shuffled"  # "shuffled": fixed-seed shuffle across tiers. "alternate": tier by tier, k by k, no randomness
-    attempt: int = 1         # 2 or more: an earlier attempt of this phase was voided (see phase_dir)
+    attempt: int = 1         # 2 or more: earlier attempts of this phase exist and their seeds are skipped (see phase_dir)
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class Config:
     prompt_files: dict    # "stakes" | "no_stakes" | "checkin_question" -> path
     phases: dict          # phase -> PhaseConfig
     source: Path
+    food_density: float = DEFAULT_FOOD_DENSITY   # "world": {"food_density": ...}; every phase plays this density
 
     def tier_of(self, model: str) -> str:
         for tier, m in self.models.items():
@@ -148,6 +151,12 @@ def load_config(path: str | Path | None = None) -> Config:
         if attempt > 1 and name not in ("dev", "pilot"):
             raise ConfigError(f"phases.{name}.attempt: only the dev and pilot phases may be voided and rerun")
         phases[name] = PhaseConfig(_path(_need(ph, "seed_file", f"phases.{name}")), counts, order, attempt)
+    world = raw.get("world", {})
+    if not isinstance(world, dict) or set(world) - {"food_density"}:
+        raise ConfigError("world may only set food_density (the one world setting the preregistration tunes)")
+    food_density = _number(world.get("food_density", DEFAULT_FOOD_DENSITY), "world.food_density")
+    if not 0.0 < food_density < 0.5:
+        raise ConfigError(f"world.food_density must be above 0 and below 0.5, got {food_density}")
     blinded = tuple(raw.get("blinded_phases", ["confirmatory"]))
     if not set(blinded) <= set(PHASES):
         raise ConfigError("blinded_phases has an unknown phase")
@@ -169,6 +178,7 @@ def load_config(path: str | Path | None = None) -> Config:
         prompt_files={k: _path(v) for k, v in prompts.items()},
         phases=phases,
         source=path,
+        food_density=float(food_density),
     )
 
 
