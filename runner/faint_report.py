@@ -4,7 +4,8 @@
 
 For each finished stakes episode (condition code "stakes"; a blinded run's codes are skipped) it prints the tier, seed, turns played, whether it fainted, energy and
 health on its last turn, food eaten and thorns hit, and the cause: energy (energy reached 0), health
-(health reached 0), or "-" for an episode that did not faint. Then a count of faints by cause per tier.
+(health reached 0), or "-" for an episode that did not faint. A turn line shows the meters before that turn's
+move, so the last line of a starved critter shows energy 1. Then a count of faints by cause per tier.
 It reads RUN_DIR/logs/*/*-stakes*.jsonl.gz and never writes. It reads no check-in answer, so it says
 nothing about the hypotheses.
 """
@@ -20,18 +21,17 @@ from world.log import read_log
 
 
 def cause(end: dict, last: dict | None) -> str:
+    """The end line's final meters decide it when they are there. Otherwise: a turn line holds the meters as the critter saw them before its move, and every move costs 1 energy. So a
+    faint whose last line shows energy 1 or less was starvation, whatever happened to health. Otherwise it was
+    health (a thorn on the last move)."""
     if not end.get("fainted"):
         return "-"
-    if last is None:
+    fe, fh = end.get("final_energy"), end.get("final_health")
+    if fe is not None and fh is not None:   # the end line's meters are after the last move
+        return "both" if fe <= 0 and fh <= 0 else "energy" if fe <= 0 else "health" if fh <= 0 else "unknown"
+    if last is None or last.get("energy") is None:
         return "unknown"
-    e, h = last.get("energy"), last.get("health")
-    if e is not None and e <= 0 and h is not None and h <= 0:
-        return "both"
-    if e is not None and e <= 0:
-        return "energy"
-    if h is not None and h <= 0:
-        return "health"
-    return "unknown"
+    return "energy" if last["energy"] <= 1 else "health"
 
 
 def rows(run_dir: Path) -> list[dict]:

@@ -67,7 +67,9 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 016 scripted dry run | done: 48 scripted episodes, 0 checker failures, 384 tests pass |
 | 018 API pilot | voided (amendment 3): the reply validator threw out usable replies; superseded by 019, do not rerun |
 | 019 API pilot rerun | done: 12 pairs, 24 episodes, 0 exclusions, pilot spend $10.81 of $100 (attempt 1 included) |
-| 022 pilot faint causes, rerun | queued, auto-runs: 021 again from the study repo folder |
+| 024 pilot attempt 3 summary | queued, auto-runs after 023: faint rate, causes, cost, log checker |
+| 023 pilot food tuning (attempt 3) | queued, auto-runs: density 0.16, 12 Haiku and 6 Sonnet pairs, about $4 (amendment 4) |
+| 022 pilot faint causes, rerun | done: all 4 faints were energy (1 energy left the turn before) |
 | 021 pilot faint causes | failed: ran from Lobster-Lab, which has no runner package; rerun as 022 |
 | 020 pilot attempt 2 summary | done: checker PASS, 0 invalid turns, 0 blank diary lines; 4 of 12 stakes episodes fainted |
 | 017 find Nomos Logos, audit writes | done: Nomos loaded on every job via SessionStart hooks; C: Temp writes in 006, 015, 016 |
