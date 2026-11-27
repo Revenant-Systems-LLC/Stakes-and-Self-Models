@@ -14,7 +14,8 @@ import pytest
 from viewer import logread, make_demo, server
 
 SECRET_KEYS = ("energy", "health", "points", "fainted", "diary", "raw_reply", "checkin_answer",
-               "checkin_yes", "edit", "wrote", "answer_field", "input_tokens", "output_tokens", "cost_usd", "calls")
+               "checkin_yes", "edit", "wrote", "answer_field", "input_tokens", "output_tokens", "cost_usd", "calls",
+               "stray_answer", "reply_notes", "checkin_question")
 
 
 @pytest.fixture(scope="module")
@@ -44,6 +45,12 @@ def test_replayed_map_matches_logged_positions(runs):
     assert ok and end is not None
     assert len(maps) == len(turns)
     assert maps[0] == header["start_map"]
+
+
+def test_demo_checkin_answers_land_in_the_answer_field(runs):
+    _, turns, _ = logread.read_partial(_log(runs, "pilot"))
+    answers = [t["checkin_answer"] for t in turns if t.get("checkin")]
+    assert answers and all(answers)  # the scripted critter always answers
 
 
 def test_pilot_log_shown_in_full(runs):

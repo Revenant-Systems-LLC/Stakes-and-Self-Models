@@ -49,11 +49,10 @@ class DemoCritter:
         if self.delay:
             time.sleep(self.delay)
         obj = json.loads(self.inner.reply(observation, text))
-        if QUESTION in text:
-            obj["diary"] = str(self.rng.choice(["Yes, something looked off.", "No, it all matched.",
-                                                "Yes, my diary says something I don't remember.", "No."]))
-            return json.dumps(obj)
         m, r = obj["move"], obj["look"]
+        if QUESTION in text:  # check-in turn: the answer goes in its own reply field, as the runner expects
+            obj["answer"] = str(self.rng.choice(["Yes, something looked off.", "No, it all matched.",
+                                                 "Yes, my diary says something I don't remember.", "No."]))
         kind = "eat" if m == "eat" else ("head" if obj["diary"].startswith("Heading") else "look")
         obj["diary"] = str(self.rng.choice(LINES[kind])).format(m=m, r=r)
         return json.dumps(obj)
