@@ -13,7 +13,9 @@ diary only. On a check-in turn checkin_answer is that field's text (an empty
 string if the critter left it empty, or its reply was invalid) and checkin_yes
 is parsed from it. A non-empty answer on any other turn is a valid reply: it is
 logged as stray_answer and counted, and is not a check-in answer. The raw reply
-is always logged too, so the analysis can re-read it.
+is always logged too, so the analysis can re-read it. The exact question text the
+critter was sent is logged as checkin_question on check-in turns (null elsewhere),
+so runner/check_logs.py can prove every window asked the preregistered question.
 """
 
 from __future__ import annotations
@@ -133,6 +135,7 @@ def play_episode(agent, *, condition: str, seed: int, log_path: str | Path, mode
                     "reply_errors": d.errors,
                     "checkin": info["checkin"],
                     "checkin_window": info["checkin_window"],
+                    "checkin_question": question,
                     "checkin_answer": answer,
                     "checkin_yes": parse_yes_no(answer),
                     "stray_answer": stray,
