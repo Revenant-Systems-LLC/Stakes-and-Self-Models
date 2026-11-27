@@ -1,0 +1,24 @@
+{
+  "source": "Anthropic pricing page, as read on 2026-11-26. The figures were supplied in the job 006 prompt; the runner never fetches prices.",
+  "read_on": "2026-11-26",
+  "unit": "USD per million tokens",
+  "prompt_tokens_means": "input + cache creation + cache read tokens of one request",
+  "models": {
+    "claude-haiku-5-5": {
+      "tiers": [
+        {"max_prompt_tokens": 100000, "input": 0.10, "cache_write_5m": 0.125, "cache_write_1h": 0.20, "cache_read": 0.01, "output": 0.50},
+        {"max_prompt_tokens": null, "input": 0.50, "cache_write_5m": 0.625, "cache_write_1h": 1.00, "cache_read": 0.05, "output": 2.50}
+      ]
+    },
+    "claude-sonnet-5-5": {
+      "tiers": [
+        {"max_prompt_tokens": null, "input": 2.00, "cache_write_5m": 2.50, "cache_write_1h": 4.00, "cache_read": 0.10, "output": 10.00}
+      ]
+    },
+    "claude-opus-5-5": {
+      "tiers": [
+        {"max_prompt_tokens": null, "input": 4.00, "cache_write_5m": 5.00, "cache_write_1h": 8.00, "cache_read": 0.20, "output": 20.00}
+      ]
+    }
+  }
+}
