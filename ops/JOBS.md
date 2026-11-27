@@ -60,4 +60,5 @@ A job runs without asking when it says "Anthropic API: no", its budget is $5 or 
 | 010a clear stale 006 stub | done, stub deleted |
 | 011 reason-first replies, shorter diary | done: nothing forages; the move ignores the food in every variant; no change recommended |
 | 012 can the model read the map | dropped with the local arms (preregistration amendment 1, Nov 26) |
-| 012 which Mythos can the key call | queued runner job; David types 012 to start it; under $0.05 |
+| 012 which Mythos can the key call | done: both Mythos ids 404 (no access on the Clawlings workspace); Fable 5.2 and the 5.5 tiers callable |
+| 013 Mythos check after CVP | queued runner job; David types 013 after adding CVP to the Clawlings workspace and putting the new 7-day key in the vault; under $0.05 |
